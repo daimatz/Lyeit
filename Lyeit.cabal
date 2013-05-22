@@ -15,9 +15,15 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 executable Lyeit
-  -- main-is:
+  main-is:           Main.hs
+  hs-source-dirs:    src
   -- other-modules:
+  ghc-options:       -Wall
+                     -fno-warn-unused-do-bind
+                     -O2
+  extensions:        OverloadedStrings
   build-depends:       base
+                     , containers
                      , pandoc
                      , scotty
                      , text
