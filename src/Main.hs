@@ -1,11 +1,11 @@
 module Main where
 
-import           Web.Scotty
+import           Control.Applicative ((<$>))
+import           System.Environment  (getEnv)
 
-import           Lyeit.Type
+import           Web.Lyeit.Server
 
 main :: IO ()
 main = do
-    scotty 3000 $ do
-        get "/" $ do
-            html "hoge"
+    port <- read <$> getEnv "PORT"
+    server port

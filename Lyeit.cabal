@@ -24,6 +24,9 @@ executable Lyeit
   extensions:        OverloadedStrings
   build-depends:       base
                      , containers
+                     , directory
+                     , HTTP
+                     , mtl
                      , pandoc
                      , scotty
                      , text

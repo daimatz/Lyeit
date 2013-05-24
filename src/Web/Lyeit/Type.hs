@@ -1,5 +1,6 @@
-module Lyeit.Type where
+module Web.Lyeit.Type where
 
+import           Data.Char  (toLower)
 import           Data.List  (elemIndices)
 import           Data.Map   (Map)
 import qualified Data.Map   as Map
@@ -35,8 +36,19 @@ extFileType = Map.fromList [
     , ( "tex"     , LaTeX    )
     ]
 
-strToFileType :: String -> FileType
-strToFileType s = fromMaybe Other (Map.lookup s extFileType)
+-- | extToFileType
+-- convert extension string to filetype
+--
+-- >>> extToFileType "txt"
+-- Native
+-- >>> extToFileType "mdown"
+-- Markdown
+-- >>> extToFileType "HTML"
+-- HTML
+-- >>> extToFileType "madown"
+-- Other
+extToFileType :: String -> FileType
+extToFileType s = fromMaybe Other (Map.lookup (map toLower s) extFileType)
 
 -- | getFileType
 -- convert filename to filetype
@@ -57,4 +69,4 @@ getFileType :: FilePath -> FileType
 getFileType path =
     case elemIndices '.' path of
         []      -> Other
-        indices -> strToFileType $ drop (1 + last indices) path
+        indices -> extToFileType $ drop (1 + last indices) path
