@@ -5,70 +5,69 @@ module Web.Lyeit.Server
 import           Control.Applicative ((<$>))
 import           Control.Monad.Trans (liftIO)
 import           Data.Monoid         ((<>))
-import           Data.Text.Lazy      (Text)
-import qualified Data.Text.Lazy      as TL
+import           Data.Text.Lazy      (Text, pack, unpack)
 import           System.Directory    (doesDirectoryExist, doesFileExist)
-import           Text.Pandoc
-import           Web.Scotty
+import qualified Text.Pandoc         as P
+import qualified Web.Scotty          as S
 
 import           Web.Lyeit.Type
 
 server :: Int -> IO ()
-server port = scotty port $ do
+server port = S.scotty port $ do
 
-    get "/search" $ do
-        ps <- params
-        maybe (raise "required parameters `p' and `q'")
+    S.get "/search" $ do
+        ps <- S.params
+        maybe (S.raise "required parameters `p' and `q'")
             (uncurry actionSearch) $ do
             -- Maybe Monad
             path  <- lookup "p" ps
             query <- lookup "q" ps
-            return (TL.unpack path, query)
+            return (unpack path, query)
 
-    get (regex "^/(.*)$") $ do
-        path   <- TL.unpack <$> param "1"
+    S.get (S.regex "^/(.*)$") $ do
+        path   <- unpack <$> S.param "1"
         isFile <- liftIO $ doesFileExist path
         isDir  <- liftIO $ doesDirectoryExist path
         case (isFile, isDir) of
             (True, _) -> actionFile path
             (_, True) -> actionDir path
-            _         -> next
+            _         -> S.next
 
-    notFound $ html "<h1>Not Found.</h1>"
+    S.notFound $ S.html "<h1>Not Found.</h1>"
 
-actionSearch :: FilePath -> Text -> ActionM ()
+actionSearch :: FilePath -> Text -> S.ActionM ()
 actionSearch path query =
-    responseHtml $ "Search: path = " <> TL.pack path <> ", query = " <> query
+    responseHtml $ "Search: path = " <> pack path <> ", query = " <> query
 
-actionDir :: FilePath -> ActionM ()
+actionDir :: FilePath -> S.ActionM ()
 actionDir path =
-    responseHtml $ "Directory: path = " <> TL.pack path
+    responseHtml $ "Directory: path = " <> pack path
 
-actionFile :: FilePath -> ActionM ()
+actionFile :: FilePath -> S.ActionM ()
 actionFile path = do
     contents <- liftIO $ readFile path
-    let toHtml reader = TL.pack $ writeHtmlString def $ reader def contents
+    let toHtml reader = pack $ P.writeHtmlString P.def $ reader P.def contents
     case getFileType path of
         Native    -> responseFile path
         JSON      -> responseFile path
-        Markdown  -> responseHtml $ toHtml readMarkdown
-        RST       -> responseHtml $ toHtml readRST
-        MediaWiki -> responseHtml $ toHtml readMediaWiki
-        DocBook   -> responseHtml $ toHtml readDocBook
-        TexTile   -> responseHtml $ toHtml readTextile
-        Html      -> responseHtml $ TL.pack contents
-        LaTeX     -> responseHtml $ toHtml readLaTeX
+        Markdown  -> responseHtml $ toHtml P.readMarkdown
+        RST       -> responseHtml $ toHtml P.readRST
+        MediaWiki -> responseHtml $ toHtml P.readMediaWiki
+        DocBook   -> responseHtml $ toHtml P.readDocBook
+        TexTile   -> responseHtml $ toHtml P.readTextile
+        Html      -> responseHtml $ pack contents
+        LaTeX     -> responseHtml $ toHtml P.readLaTeX
         Other     -> responseFile path
 
-response :: ActionM () -> ActionM ()
+response :: S.ActionM () -> S.ActionM ()
 response action = do
-    header "Cache-Control" "no-cache, no-store, must-revalidate"
-    header "Pragma" "no-cache"
-    header "Expires" "0"
+    S.header "Cache-Control" "no-cache, no-store, must-revalidate"
+    S.header "Pragma" "no-cache"
+    S.header "Expires" "0"
     action
 
-responseHtml :: Text -> ActionM ()
-responseHtml = response . html
+responseHtml :: Text -> S.ActionM ()
+responseHtml = response . S.html
 
-responseFile :: FilePath -> ActionM ()
-responseFile = response . file
+responseFile :: FilePath -> S.ActionM ()
+responseFile = response . S.file
