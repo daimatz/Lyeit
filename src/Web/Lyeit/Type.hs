@@ -1,4 +1,7 @@
-module Web.Lyeit.Type where
+module Web.Lyeit.Type
+    ( FileType (..)
+    , getFileType
+    ) where
 
 import           Data.Char  (toLower)
 import           Data.List  (elemIndices)
@@ -14,7 +17,7 @@ data FileType
     | MediaWiki
     | DocBook
     | TexTile
-    | HTML
+    | Html
     | LaTeX
     | Other
   deriving (Show, Eq, Ord)
@@ -31,8 +34,8 @@ extFileType = Map.fromList [
     , ( "sgml"    , DocBook  )
     , ( "xml"     , DocBook  )
     , ( "textile" , TexTile  )
-    , ( "htm"     , HTML     )
-    , ( "html"    , HTML     )
+    , ( "htm"     , Html     )
+    , ( "html"    , Html     )
     , ( "tex"     , LaTeX    )
     ]
 
@@ -43,8 +46,8 @@ extFileType = Map.fromList [
 -- Native
 -- >>> extToFileType "mdown"
 -- Markdown
--- >>> extToFileType "HTML"
--- HTML
+-- >>> extToFileType "Html"
+-- Html
 -- >>> extToFileType "madown"
 -- Other
 extToFileType :: String -> FileType
@@ -58,7 +61,7 @@ extToFileType s = fromMaybe Other (Map.lookup (map toLower s) extFileType)
 -- >>> getFileType "example.com.md"
 -- Markdown
 -- >>> getFileType "example.md.html"
--- HTML
+-- Html
 -- >>> getFileType "example.html.tex.gif"
 -- Other
 -- >>> getFileType ".example"

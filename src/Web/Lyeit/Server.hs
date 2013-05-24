@@ -1,15 +1,22 @@
-module Web.Lyeit.Server where
+{-# LANGUAGE DoAndIfThenElse #-}
+module Web.Lyeit.Server
+    ( server
+    ) where
 
+import           Control.Applicative ((<$>))
 import           Control.Monad.Trans (liftIO)
 import           Data.Monoid         ((<>))
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
-import           System.Directory    (doesDirectoryExist)
-
+import           System.Directory    (doesDirectoryExist, doesFileExist)
+import           Text.Pandoc
 import           Web.Scotty
+
+import           Web.Lyeit.Type
 
 server :: Int -> IO ()
 server port = scotty port $ do
+
     get "/search" $ do
         ps <- params
         maybe (raise "required parameters `p' and `q'")
@@ -17,27 +24,52 @@ server port = scotty port $ do
             -- Maybe Monad
             p <- lookup "p" ps
             q <- lookup "q" ps
-            return (p, q)
+            return (TL.unpack p, q)
+
     get (regex "^/(.*)$") $ do
-        path <- param "1"
-        isDir <- liftIO $ doesDirectoryExist $ TL.unpack path
-        if isDir then actionDir path else actionFile path
+        path <- TL.unpack <$> param "1"
+        isFile <- liftIO $ doesFileExist path
+        isDir <- liftIO $ doesDirectoryExist path
+        if isFile then actionFile path
+        else
+            if isDir then actionDir path
+            else next
 
-actionSearch :: Text -> Text -> ActionM ()
+    notFound $ html "<h1>Not Found.</h1>"
+
+actionSearch :: FilePath -> Text -> ActionM ()
 actionSearch path query =
-    response $ "Search: path = " <> path <> ", query = " <> query
+    responseHtml $ "Search: path = " <> TL.pack path <> ", query = " <> query
 
-actionDir :: Text -> ActionM ()
+actionDir :: FilePath -> ActionM ()
 actionDir path =
-    response $ "Directory: path = " <> path
+    responseHtml $ "Directory: path = " <> TL.pack path
 
-actionFile :: Text -> ActionM ()
-actionFile path =
-    response $ "File: path = " <> path
+actionFile :: FilePath -> ActionM ()
+actionFile path = do
+    contents <- liftIO $ readFile path
+    let toHtml reader = TL.pack $ writeHtmlString def $ reader def contents
+    case getFileType path of
+        Native    -> responseFile path
+        JSON      -> responseFile path
+        Markdown  -> responseHtml $ toHtml readMarkdown
+        RST       -> responseHtml $ toHtml readRST
+        MediaWiki -> responseHtml $ toHtml readMediaWiki
+        DocBook   -> responseHtml $ toHtml readDocBook
+        TexTile   -> responseHtml $ toHtml readTextile
+        Html      -> responseHtml $ TL.pack contents
+        LaTeX     -> responseHtml $ toHtml readLaTeX
+        Other     -> responseFile path
 
-response :: Text -> ActionM ()
-response content = do
+response :: ActionM () -> ActionM ()
+response action = do
     header "Cache-Control" "no-cache, no-store, must-revalidate"
     header "Pragma" "no-cache"
     header "Expires" "0"
-    html content
+    action
+
+responseHtml :: Text -> ActionM ()
+responseHtml = response . html
+
+responseFile :: FilePath -> ActionM ()
+responseFile = response . file
