@@ -1,4 +1,3 @@
-{-# LANGUAGE DoAndIfThenElse #-}
 module Web.Lyeit.Server
     ( server
     ) where
@@ -22,18 +21,18 @@ server port = scotty port $ do
         maybe (raise "required parameters `p' and `q'")
             (uncurry actionSearch) $ do
             -- Maybe Monad
-            p <- lookup "p" ps
-            q <- lookup "q" ps
-            return (TL.unpack p, q)
+            path  <- lookup "p" ps
+            query <- lookup "q" ps
+            return (TL.unpack path, query)
 
     get (regex "^/(.*)$") $ do
-        path <- TL.unpack <$> param "1"
+        path   <- TL.unpack <$> param "1"
         isFile <- liftIO $ doesFileExist path
-        isDir <- liftIO $ doesDirectoryExist path
-        if isFile then actionFile path
-        else
-            if isDir then actionDir path
-            else next
+        isDir  <- liftIO $ doesDirectoryExist path
+        case (isFile, isDir) of
+            (True, _) -> actionFile path
+            (_, True) -> actionDir path
+            _         -> next
 
     notFound $ html "<h1>Not Found.</h1>"
 
