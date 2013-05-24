@@ -5,8 +5,10 @@ module Web.Lyeit.Server
 import           Control.Applicative ((<$>))
 import           Control.Monad.Trans (liftIO)
 import           Data.Monoid         ((<>))
-import           Data.Text.Lazy      (Text, pack, unpack)
-import           System.Directory    (doesDirectoryExist, doesFileExist)
+import           Data.Text.Lazy      (Text)
+import qualified Data.Text.Lazy      as TL
+import           System.Directory    (doesDirectoryExist, doesFileExist,
+                                      getDirectoryContents)
 import qualified Text.Pandoc         as P
 import qualified Web.Scotty          as S
 
@@ -22,10 +24,10 @@ server port = S.scotty port $ do
             -- Maybe Monad
             path  <- lookup "p" ps
             query <- lookup "q" ps
-            return (unpack path, query)
+            return (TL.unpack path, query)
 
     S.get (S.regex "^/(.*)$") $ do
-        path   <- unpack <$> S.param "1"
+        path   <- TL.unpack <$> trimLastSlashes <$> S.param "1"
         isFile <- liftIO $ doesFileExist path
         isDir  <- liftIO $ doesDirectoryExist path
         case (isFile, isDir) of
@@ -35,18 +37,43 @@ server port = S.scotty port $ do
 
     S.notFound $ S.html "<h1>Not Found.</h1>"
 
+  where
+    trimLastSlashes path =
+        if TL.last path == '/' then
+            trimLastSlashes (TL.init path)
+        else
+            path
+
 actionSearch :: FilePath -> Text -> S.ActionM ()
 actionSearch path query =
-    responseHtml $ "Search: path = " <> pack path <> ", query = " <> query
+    responseHtml $ "Search: path = " <> TL.pack path <> ", query = " <> query
+
+data DirectoryContents = DirectoryContents
+    { directories :: [FilePath]
+    , documents   :: [FilePath]
+    , others      :: [FilePath]
+    }
+  deriving (Show, Read, Eq, Ord)
 
 actionDir :: FilePath -> S.ActionM ()
-actionDir path =
-    responseHtml $ "Directory: path = " <> pack path
+actionDir path = do
+    fs <- filter (`notElem` [".", ".."]) <$> liftIO (getDirectoryContents path)
+    isDirs <- mapM (liftIO . doesDirectoryExist . ((path++"/")++)) fs
+    let cts = foldl gather (DirectoryContents [] [] []) (zip fs isDirs)
+    responseHtml $ TL.pack (show cts)
+  where
+    gather cts (f, d) =
+        if d then
+            cts { directories = f : directories cts }
+        else
+            case getFileType f of
+                Other -> cts { others = f : others cts }
+                _     -> cts { documents = f : documents cts }
 
 actionFile :: FilePath -> S.ActionM ()
 actionFile path = do
     contents <- liftIO $ readFile path
-    let toHtml reader = pack $ P.writeHtmlString P.def $ reader P.def contents
+    let toHtml reader = TL.pack $ P.writeHtmlString P.def $ reader P.def contents
     case getFileType path of
         Native    -> responseFile path
         JSON      -> responseFile path
@@ -55,7 +82,7 @@ actionFile path = do
         MediaWiki -> responseHtml $ toHtml P.readMediaWiki
         DocBook   -> responseHtml $ toHtml P.readDocBook
         TexTile   -> responseHtml $ toHtml P.readTextile
-        Html      -> responseHtml $ pack contents
+        Html      -> responseHtml $ TL.pack contents
         LaTeX     -> responseHtml $ toHtml P.readLaTeX
         Other     -> responseFile path
 
