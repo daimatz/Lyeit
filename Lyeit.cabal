@@ -25,6 +25,7 @@ executable Lyeit
   build-depends:       base
                      , containers
                      , directory
+                     , filepath
                      , HTTP
                      , mtl
                      , pandoc

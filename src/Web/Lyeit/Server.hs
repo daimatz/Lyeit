@@ -7,11 +7,11 @@ import           Control.Monad.Trans (liftIO)
 import           Data.Monoid         ((<>))
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
-import           System.Directory    (doesDirectoryExist, doesFileExist,
-                                      getDirectoryContents)
+import           System.Directory    (doesDirectoryExist, doesFileExist)
 import qualified Text.Pandoc         as P
 import qualified Web.Scotty          as S
 
+import           Web.Lyeit.DirUtil
 import           Web.Lyeit.Type
 
 server :: Int -> IO ()
@@ -57,7 +57,7 @@ data DirectoryContents = DirectoryContents
 
 actionDir :: FilePath -> S.ActionM ()
 actionDir path = do
-    fs <- filter (`notElem` [".", ".."]) <$> liftIO (getDirectoryContents path)
+    fs <- liftIO $ dirFiles path
     isDirs <- mapM (liftIO . doesDirectoryExist . ((path++"/")++)) fs
     let cts = foldl gather (DirectoryContents [] [] []) (zip fs isDirs)
     responseHtml $ TL.pack (show cts)
