@@ -13,7 +13,7 @@ import           System.Directory    (doesDirectoryExist, doesFileExist)
 import qualified Text.Pandoc         as P
 import qualified Web.Scotty          as S
 
-import           Web.Lyeit.DirUtil
+import           Web.Lyeit.FileUtil
 import           Web.Lyeit.Type
 
 server :: Int -> IO ()
