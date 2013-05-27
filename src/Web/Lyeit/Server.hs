@@ -2,16 +2,18 @@ module Web.Lyeit.Server
     ( server
     ) where
 
-import           Control.Applicative ((<$>))
-import           Control.Monad.Trans (liftIO)
-import           Data.Map            (Map)
-import qualified Data.Map            as Map
-import           Data.Monoid         (mappend, (<>))
-import           Data.Text.Lazy      (Text)
-import qualified Data.Text.Lazy      as TL
-import           System.Directory    (doesDirectoryExist, doesFileExist)
-import qualified Text.Pandoc         as P
-import qualified Web.Scotty          as S
+import           Control.Applicative  ((<$>))
+import           Control.Monad.Trans  (liftIO)
+import           Data.CaseInsensitive (mk)
+import           Data.List            (sort)
+import           Data.Map             (Map)
+import qualified Data.Map             as Map
+import           Data.Monoid          (mappend)
+import           Data.Text.Lazy       (Text)
+import qualified Data.Text.Lazy       as TL
+import           System.Directory     (doesDirectoryExist, doesFileExist)
+import qualified Text.Pandoc          as P
+import qualified Web.Scotty           as S
 
 import           Web.Lyeit.FileUtil
 import           Web.Lyeit.Type
@@ -47,8 +49,9 @@ server port = S.scotty port $ do
             path
 
 actionSearch :: FilePath -> Text -> S.ActionM ()
-actionSearch path query =
-    responseHtml $ "Search: path = " <> TL.pack path <> ", query = " <> query
+actionSearch path query = do
+    fs <- liftIO $ findGrep path (TL.words query)
+    responseHtml $ TL.pack $ show $ sort $ map mk fs
 
 type ListFiles = Map Text [FilePath]
 

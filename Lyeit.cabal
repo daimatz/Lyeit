@@ -23,6 +23,7 @@ executable Lyeit
                      -O2
   extensions:        OverloadedStrings
   build-depends:       base
+                     , case-insensitive
                      , containers
                      , directory
                      , filepath

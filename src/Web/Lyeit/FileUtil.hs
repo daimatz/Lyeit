@@ -55,4 +55,5 @@ findGrep path queries = do
         _     -> do
             contents <- TLIO.readFile filepath
             -- TODO: once convert to text and search it
+            -- TODO: case insensitive search (pull-request to case-insensitive?)
             return [filepath | all (`TL.isInfixOf` contents) queries]
