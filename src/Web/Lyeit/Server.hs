@@ -4,7 +4,9 @@ module Web.Lyeit.Server
 
 import           Control.Applicative ((<$>))
 import           Control.Monad.Trans (liftIO)
-import           Data.Monoid         ((<>))
+import           Data.Map            (Map)
+import qualified Data.Map            as Map
+import           Data.Monoid         (mappend, (<>))
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
 import           System.Directory    (doesDirectoryExist, doesFileExist)
@@ -39,7 +41,7 @@ server port = S.scotty port $ do
 
   where
     trimLastSlashes path =
-        if TL.last path == '/' then
+        if not (TL.null path) && TL.last path == '/' then
             trimLastSlashes (TL.init path)
         else
             path
@@ -48,27 +50,30 @@ actionSearch :: FilePath -> Text -> S.ActionM ()
 actionSearch path query =
     responseHtml $ "Search: path = " <> TL.pack path <> ", query = " <> query
 
-data DirectoryContents = DirectoryContents
-    { directories :: [FilePath]
-    , documents   :: [FilePath]
-    , others      :: [FilePath]
-    }
-  deriving (Show, Read, Eq, Ord)
+type ListFiles = Map Text [FilePath]
 
 actionDir :: FilePath -> S.ActionM ()
 actionDir path = do
     fs <- liftIO $ dirFiles path
     isDirs <- mapM (liftIO . doesDirectoryExist . ((path++"/")++)) fs
-    let cts = foldl gather (DirectoryContents [] [] []) (zip fs isDirs)
+    let cts = foldl gather emptyDir  (zip fs isDirs)
     responseHtml $ TL.pack (show cts)
   where
-    gather cts (f, d) =
+    emptyDir = Map.fromList
+        [ ("Directories", [])
+        , ("Documents", [])
+        , ("Others", [])
+        ]
+    add :: ListFiles -> Text -> FilePath -> ListFiles
+    add lst genre p = Map.insertWith mappend genre [p] lst
+    gather :: ListFiles -> (FilePath, Bool) -> ListFiles
+    gather lst (f, d) =
         if d then
-            cts { directories = f : directories cts }
+            add lst "Directories" f
         else
             case getFileType f of
-                Other -> cts { others = f : others cts }
-                _     -> cts { documents = f : documents cts }
+                Other -> add lst "Others" f
+                _     -> add lst "Documents" f
 
 actionFile :: FilePath -> S.ActionM ()
 actionFile path = do
