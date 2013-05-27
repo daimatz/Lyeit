@@ -54,4 +54,5 @@ findGrep path queries = do
         -- if FileType is Document, read it and check the content
         _     -> do
             contents <- TLIO.readFile filepath
+            -- TODO: once convert to text and search it
             return [filepath | all (`TL.isInfixOf` contents) queries]

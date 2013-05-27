@@ -80,7 +80,7 @@ actionFile path = do
     contents <- liftIO $ readFile path
     let toHtml reader = TL.pack $ P.writeHtmlString P.def $ reader P.def contents
     case getFileType path of
-        Native    -> responseFile path
+        Plain     -> responseFile path
         JSON      -> responseFile path
         Markdown  -> responseHtml $ toHtml P.readMarkdown
         RST       -> responseHtml $ toHtml P.readRST

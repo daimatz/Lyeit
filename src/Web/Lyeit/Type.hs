@@ -10,7 +10,7 @@ import qualified Data.Map   as Map
 import           Data.Maybe (fromMaybe)
 
 data FileType
-    = Native
+    = Plain
     | JSON
     | Markdown
     | RST
@@ -24,7 +24,7 @@ data FileType
 
 extFileType :: Map String FileType
 extFileType = Map.fromList [
-      ( "txt"     , Native   )
+      ( "txt"     , Plain    )
     , ( "json"    , JSON     )
     , ( "markdown", Markdown )
     , ( "md"      , Markdown )
