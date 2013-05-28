@@ -22,7 +22,9 @@ executable Lyeit
                      -fno-warn-unused-do-bind
                      -O2
   extensions:        OverloadedStrings
-  build-depends:       base
+  build-depends:
+                       aeson
+                     , base
                      , case-insensitive
                      , containers
                      , directory
