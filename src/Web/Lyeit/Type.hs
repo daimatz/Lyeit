@@ -43,7 +43,7 @@ extFileType = Map.fromList [
 -- convert extension string to filetype
 --
 -- >>> extToFileType "txt"
--- Native
+-- Plain
 -- >>> extToFileType "mdown"
 -- Markdown
 -- >>> extToFileType "Html"
