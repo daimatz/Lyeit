@@ -21,15 +21,17 @@ import           Web.Lyeit.Config
 import           Web.Lyeit.FileUtil
 import           Web.Lyeit.Type
 
-server :: IO ()
-server = do
-    let config = Config "localhost" 3000 "/tmp"
-    S.scotty (configPort config) $ do
+server :: FilePath -> IO ()
+server configPath = do
+    -- TODO: Ugly...
+    config <- readConfig configPath
+
+    S.scotty (port config) $ do
 
         S.get "/search" $ do
             ps <- S.params
             maybe (S.raise "required parameters `p' and `q'")
-                (runConfigM config . uncurry actionSearch) $ do
+                (runConfigM configPath . uncurry actionSearch) $ do
                 -- Maybe Monad
                 path  <- lookup "p" ps
                 query <- lookup "q" ps
@@ -38,14 +40,14 @@ server = do
         S.get (S.regex "^(.*)$") $ do
             path   <-  dropTrailingPathSeparator
                    <$> normalise
-                   <$> (configDocumentRoot config </>)
+                   <$> (documentRoot config </>)
                    <$> TL.unpack
                    <$> S.param "1"
             isFile <- liftIO $ doesFileExist path
             isDir  <- liftIO $ doesDirectoryExist path
             case (isFile, isDir) of
-                (True, _) -> runConfigM config $ actionFile path
-                (_, True) -> runConfigM config $ actionDir path
+                (True, _) -> runConfigM configPath $ actionFile path
+                (_, True) -> runConfigM configPath $ actionDir path
                 _         -> S.next
 
         S.notFound $ S.html "<h1>Not Found.</h1>"

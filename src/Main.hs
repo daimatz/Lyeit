@@ -1,6 +1,10 @@
 module Main where
 
+import           System.Environment (getArgs)
+
 import           Web.Lyeit.Server
 
 main :: IO ()
-main = server
+main = do
+    args <- getArgs
+    server (args !! 0)
