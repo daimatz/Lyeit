@@ -12,6 +12,8 @@ import           Data.Monoid          (mappend)
 import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy       as TL
 import           System.Directory     (doesDirectoryExist, doesFileExist)
+import           System.FilePath      (dropTrailingPathSeparator, normalise,
+                                       (</>))
 import qualified Text.Pandoc          as P
 import qualified Web.Scotty           as S
 
@@ -34,8 +36,11 @@ server = do
                 return (TL.unpack path, query)
 
         S.get (S.regex "^(.*)$") $ do
-            path   <- (++) (configDocumentRoot config)
-                   <$> TL.unpack <$> trimLastSlashes <$> S.param "1"
+            path   <-  dropTrailingPathSeparator
+                   <$> normalise
+                   <$> (configDocumentRoot config </>)
+                   <$> TL.unpack
+                   <$> S.param "1"
             isFile <- liftIO $ doesFileExist path
             isDir  <- liftIO $ doesDirectoryExist path
             case (isFile, isDir) of
@@ -44,13 +49,6 @@ server = do
                 _         -> S.next
 
         S.notFound $ S.html "<h1>Not Found.</h1>"
-
-      where
-        trimLastSlashes path =
-            if not (TL.null path) && TL.last path == '/' then
-                trimLastSlashes (TL.init path)
-            else
-                path
 
 actionSearch :: FilePath -> Text -> ConfigM ()
 actionSearch path query = do
