@@ -23,34 +23,40 @@ import           Web.Lyeit.Type
 
 server :: FilePath -> IO ()
 server configPath = do
-    -- TODO: Ugly...
     config <- readConfig configPath
+
+    let get uri = S.get uri . runConfigM config
 
     S.scotty (port config) $ do
 
-        S.get "/search" $ do
-            ps <- S.params
-            maybe (S.raise "required parameters `p' and `q'")
-                (runConfigM configPath . uncurry actionSearch) $ do
+        get "/search" $ do
+            ps <- params
+            maybe (raise "required parameters `p' and `q'")
+                (uncurry actionSearch) $ do
                 -- Maybe Monad
                 path  <- lookup "p" ps
                 query <- lookup "q" ps
                 return (TL.unpack path, query)
 
-        S.get (S.regex "^(.*)$") $ do
+        get (S.regex "^(.*)$") $ do
             path   <-  dropTrailingPathSeparator
                    <$> normalise
                    <$> (documentRoot config </>)
                    <$> TL.unpack
-                   <$> S.param "1"
+                   <$> param "1"
             isFile <- liftIO $ doesFileExist path
             isDir  <- liftIO $ doesDirectoryExist path
             case (isFile, isDir) of
-                (True, _) -> runConfigM configPath $ actionFile path
-                (_, True) -> runConfigM configPath $ actionDir path
-                _         -> S.next
+                (True, _) -> actionFile path
+                (_, True) -> actionDir path
+                _         -> next
 
         S.notFound $ S.html "<h1>Not Found.</h1>"
+  where
+    params  = lift S.params
+    param   = lift . S.param
+    raise   = lift . S.raise
+    next    = lift S.next
 
 actionSearch :: FilePath -> Text -> ConfigM ()
 actionSearch path query = do

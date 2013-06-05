@@ -9,7 +9,6 @@ module Web.Lyeit.Config
     ) where
 
 import           Control.Monad.Reader (ReaderT, asks, runReaderT)
-import           Control.Monad.Trans  (liftIO)
 import qualified Data.Aeson           as Aeson
 import           Data.Aeson.TH        (deriveJSON)
 import qualified Data.ByteString.Lazy as BSL
@@ -29,10 +28,8 @@ $(deriveJSON id ''Config)
 
 type ConfigM a = ReaderT Config ActionM a
 
-runConfigM :: FilePath -> ConfigM a -> ActionM a
-runConfigM path action = do
-    config <- liftIO $ readConfig path
-    runReaderT action config
+runConfigM :: Config -> ConfigM a -> ActionM a
+runConfigM = flip runReaderT
 
 readConfig :: FilePath -> IO Config
 readConfig path = do
