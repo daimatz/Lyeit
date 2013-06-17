@@ -41,7 +41,7 @@ server configPath = do
         get (S.regex "^(.*)$") $ do
             path   <-  dropTrailingPathSeparator
                    <$> normalise
-                   <$> (documentRoot config </>)
+                   <$> (document_root config </>)
                    <$> TL.unpack
                    <$> param "1"
             isFile <- liftIO $ doesFileExist path

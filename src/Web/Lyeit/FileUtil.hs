@@ -4,6 +4,7 @@ module Web.Lyeit.FileUtil where
 
 import           Control.Applicative ((<$>), (<*>))
 import           Control.Monad       (forM, join)
+import           Data.List           (elemIndices)
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Text.Lazy.IO   as TLIO
@@ -57,3 +58,24 @@ findGrep path queries = do
             -- TODO: once convert to text and search it
             -- TODO: case insensitive search (pull-request to case-insensitive?)
             return [filepath | all (`TL.isInfixOf` contents) queries]
+
+-- | getFileType
+-- convert filename to filetype
+--
+-- >>> getFileType "example.rst"
+-- RST
+-- >>> getFileType "example.com.md"
+-- Markdown
+-- >>> getFileType "example.md.html"
+-- Html
+-- >>> getFileType "example.html.tex.gif"
+-- Other
+-- >>> getFileType ".example"
+-- Other
+-- >>> getFileType ".example.json"
+-- JSON
+getFileType :: FilePath -> FileType
+getFileType path =
+    case elemIndices '.' path of
+        []      -> Other
+        indices -> read $ drop (1 + last indices) path
