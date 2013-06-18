@@ -12,7 +12,7 @@ data FileType
     | TexTile
     | Html
     | LaTeX
-    | Other
+    | OtherFile
   deriving (Show, Eq, Ord)
 
 instance Read FileType where
@@ -30,4 +30,4 @@ instance Read FileType where
         "htm"      -> [(Html, "")]
         "html"     -> [(Html, "")]
         "tex"      -> [(LaTeX, "")]
-        _          -> [(Other, "")]
+        _          -> [(OtherFile, "")]

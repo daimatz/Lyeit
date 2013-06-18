@@ -63,7 +63,10 @@ actionSearch path query = do
     fs <- liftIO $ findGrep path (TL.words query)
     responseHtml $ TL.pack $ show $ sort $ map mk fs
 
-type ListFiles = Map Text [FilePath]
+type ListFiles = Map ListType [FilePath]
+
+data ListType = Directory | Document | Other
+  deriving (Show, Read, Eq, Ord)
 
 actionDir :: FilePath -> ConfigM ()
 actionDir path = do
@@ -73,20 +76,20 @@ actionDir path = do
     responseHtml $ TL.pack (show cts)
   where
     emptyDir = Map.fromList
-        [ ("Directories", [])
-        , ("Documents", [])
-        , ("Others", [])
+        [ (Directory, [])
+        , (Document, [])
+        , (Other, [])
         ]
-    add :: ListFiles -> Text -> FilePath -> ListFiles
+    add :: ListFiles -> ListType -> FilePath -> ListFiles
     add lst genre p = Map.insertWith mappend genre [p] lst
     gather :: ListFiles -> (FilePath, Bool) -> ListFiles
     gather lst (f, d) =
         if d then
-            add lst "Directories" f
+            add lst Directory f
         else
             case getFileType f of
-                Other -> add lst "Others" f
-                _     -> add lst "Documents" f
+                OtherFile -> add lst Other f
+                _         -> add lst Document f
 
 actionFile :: FilePath -> ConfigM ()
 actionFile path = do
@@ -102,7 +105,7 @@ actionFile path = do
         TexTile   -> responseHtml $ toHtml P.readTextile
         Html      -> responseHtml $ TL.pack contents
         LaTeX     -> responseHtml $ toHtml P.readLaTeX
-        Other     -> responseFile path
+        OtherFile -> responseFile path
 
 response :: ConfigM () -> ConfigM ()
 response action = do

@@ -50,7 +50,7 @@ findGrep path queries = do
     matchFile :: FilePath -> IO [FilePath]
     matchFile filepath = case getFileType filepath of
         -- if FileType is not Document, check the file name
-        Other ->
+        OtherFile ->
             return [filepath | all (`TL.isInfixOf` TL.pack filepath) queries]
         -- if FileType is Document, read it and check the content
         _     -> do
@@ -69,13 +69,13 @@ findGrep path queries = do
 -- >>> getFileType "example.md.html"
 -- Html
 -- >>> getFileType "example.html.tex.gif"
--- Other
+-- OtherFile
 -- >>> getFileType ".example"
--- Other
+-- OtherFile
 -- >>> getFileType ".example.json"
 -- JSON
 getFileType :: FilePath -> FileType
 getFileType path =
     case elemIndices '.' path of
-        []      -> Other
+        []      -> OtherFile
         indices -> read $ drop (1 + last indices) path
