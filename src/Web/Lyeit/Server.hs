@@ -38,7 +38,7 @@ server configPath = do
                 query <- lookup "q" ps
                 return (TL.unpack path, query)
 
-        get (S.regex "^(.*)$") $ do
+        get (S.regex "^/*(.*)$") $ do
             path   <-  dropTrailingPathSeparator
                    <$> normalise
                    <$> (document_root config </>)
@@ -68,7 +68,7 @@ type ListFiles = Map Text [FilePath]
 actionDir :: FilePath -> ConfigM ()
 actionDir path = do
     fs <- liftIO $ dirFiles path
-    isDirs <- mapM (liftIO . doesDirectoryExist . ((path++"/")++)) fs
+    isDirs <- mapM (liftIO . doesDirectoryExist . (path </>)) fs
     let cts = foldl gather emptyDir  (zip fs isDirs)
     responseHtml $ TL.pack (show cts)
   where
