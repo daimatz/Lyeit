@@ -23,11 +23,11 @@ import           Web.Lyeit.Type
 
 server :: FilePath -> IO ()
 server configPath = do
-    config <- readConfig configPath
+    c <- readConfig configPath
 
-    let get uri = S.get uri . runConfigM config
+    let get uri = S.get uri . runConfigM c
 
-    S.scotty (port config) $ do
+    S.scotty (port c) $ do
 
         get "/search" $ do
             ps <- params
@@ -41,7 +41,7 @@ server configPath = do
         get (S.regex "^/*(.*)$") $ do
             path   <-  dropTrailingPathSeparator
                    <$> normalise
-                   <$> (document_root config </>)
+                   <$> (document_root c </>)
                    <$> TL.unpack
                    <$> param "1"
             isFile <- liftIO $ doesFileExist path
