@@ -8,6 +8,7 @@ import           Control.Monad.Reader (asks, runReaderT)
 import           Data.Aeson           (decode)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Maybe           (fromMaybe)
+import           System.FilePath      (dropTrailingPathSeparator)
 import           Web.Scotty           (ActionM)
 
 import           Web.Lyeit.Type
@@ -21,5 +22,6 @@ config = asks
 readConfig :: FilePath -> IO Config
 readConfig path = do
     contents <- BSL.readFile path
-    return $ fromMaybe (error "failed to decode config file of JSON") $
-        decode contents
+    let c = fromMaybe (error "failed to decode config file of JSON") $
+            decode contents
+    return $ c { document_root = dropTrailingPathSeparator $ document_root c }

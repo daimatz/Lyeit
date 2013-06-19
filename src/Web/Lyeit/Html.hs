@@ -68,14 +68,14 @@ dirHtml request cts
     context _
         = errorRef
     -- FIXME: other properties than path, ex: title...
-    directory dir  "path"  = H.MuVariable $ requestPath dir
-    directory dir  "title" = H.MuVariable dir
+    directory dir  "path"  = H.MuVariable $ requestPath $ fst dir
+    directory dir  "title" = H.MuVariable $ snd dir
     directory _    _       = errorRef
-    document  doc  "path"  = H.MuVariable $ requestPath doc
-    document  doc  "title" = H.MuVariable doc
+    document  doc  "path"  = H.MuVariable $ requestPath $ fst doc
+    document  doc  "title" = H.MuVariable $ snd doc
     document  _    _       = errorRef
-    other     ot   "path"  = H.MuVariable $ requestPath ot
-    other     ot   "title" = H.MuVariable ot
+    other     ot   "path"  = H.MuVariable $ requestPath $ fst ot
+    other     ot   "title" = H.MuVariable $ snd ot
     other     _    _       = errorRef
     requestPath path
         = (if null request then "" else "/" <> request) <> "/" <> path

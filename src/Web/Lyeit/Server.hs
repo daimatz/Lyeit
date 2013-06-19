@@ -3,7 +3,7 @@ module Web.Lyeit.Server
     ) where
 
 import           Control.Applicative  ((<$>))
-import           Control.Monad        (liftM)
+import           Control.Monad        (forM)
 import           Control.Monad.Trans  (lift, liftIO)
 import           Data.CaseInsensitive (mk)
 import           Data.List            (sort)
@@ -14,8 +14,9 @@ import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy       as TL
 import           System.Directory     (doesDirectoryExist, doesFileExist)
 import           System.FilePath      (dropTrailingPathSeparator, normalise,
-                                       (</>))
+                                       pathSeparator, (</>))
 import qualified Text.Pandoc          as P
+import           Text.Pandoc.Shared   (stringify)
 import qualified Web.Scotty           as S
 
 import           Web.Lyeit.Config
@@ -73,8 +74,16 @@ actionDir :: FilePath -> ConfigM ()
 actionDir path = do
     full <- fullpath path
     fs <- liftIO $ dirFiles full
-    isDirs <- mapM (liftIO . doesDirectoryExist . (full </>)) fs
-    let cts = foldl gather emptyDir  (zip fs isDirs)
+    isDirs <- forM fs $ \f -> do
+        isDir <- liftIO $ doesDirectoryExist $ full </> f
+        title <- case selectReader (getFileType f) of
+            Just reader -> do
+                contents <- liftIO $ readFile $ full </> f
+                return $ fromMaybe (TL.pack f) $ getTitle $ reader P.def contents
+            Nothing -> return $ TL.pack f
+        return (isDir, title)
+    let cts = foldl gather emptyDir ((uncurry zip3 . unzip) isDirs fs)
+
     h <- headHtml path (TL.pack $ "Index of " <> path) ""
     b <- dirHtml path cts
     f <- footHtmlWithPath full
@@ -85,16 +94,16 @@ actionDir path = do
         , (Document, [])
         , (Other, [])
         ]
-    add :: ListFiles -> ListType -> FilePath -> ListFiles
+    add :: ListFiles -> ListType -> (FilePath, Title) -> ListFiles
     add lst genre p = Map.insertWith mappend genre [p] lst
-    gather :: ListFiles -> (FilePath, Bool) -> ListFiles
-    gather lst (f, d) =
+    gather :: ListFiles -> (Bool, Title, FilePath) -> ListFiles
+    gather lst (d, t, f) =
         if d then
-            add lst Directory f
+            add lst Directory (f, t)
         else
             case getFileType f of
-                OtherFile -> add lst Other f
-                _         -> add lst Document f
+                OtherFile -> add lst Other (f, t)
+                _         -> add lst Document (f, t)
 
 actionFile :: FilePath -> ConfigM ()
 actionFile path = do
@@ -103,8 +112,8 @@ actionFile path = do
 
     let responseDocument reader = do
             let pandoc = reader P.def contents
-                title = fromMaybe path $ getTitle pandoc
-            h <- headHtml path (TL.pack title) ""
+                title = fromMaybe (TL.pack path) $ getTitle pandoc
+            h <- headHtml path title ""
             let b = TL.pack $ P.writeHtmlString P.def pandoc
             f <- footHtmlWithPath full
             responseHtml $ h <> b <> f
@@ -120,15 +129,16 @@ selectReader tp = case tp of
     DocBook   -> Just P.readDocBook
     TexTile   -> Just P.readTextile
     LaTeX     -> Just P.readLaTeX
+    Html      -> Just P.readHtml
     _         -> Nothing
 
-getTitle :: P.Pandoc -> Maybe String
+getTitle :: P.Pandoc -> Maybe Title
 getTitle (P.Pandoc meta body) = case P.docTitle meta of
-    P.Str x : _ -> Just x
-    _ -> getTitleFromBody body
+    [] -> getTitleFromBody body
+    ils -> Just $ TL.pack $ stringify ils
   where
     getTitleFromBody [] = Nothing
-    getTitleFromBody (P.Header _ (str,_,_) _ : _) = Just str
+    getTitleFromBody (P.Header _ _ ils : _) = Just $ TL.pack $ stringify ils
     getTitleFromBody (_ : next) = getTitleFromBody next
 
 response :: ConfigM () -> ConfigM ()
@@ -144,5 +154,8 @@ responseHtml = response . lift . S.html
 responseFile :: FilePath -> ConfigM ()
 responseFile = response . lift . S.file
 
+-- | fullpath
+--
+-- combine given path with document_root.
 fullpath :: FilePath -> ConfigM FilePath
-fullpath path = (</> path) `liftM` config document_root
+fullpath path = (</> dropWhile (== pathSeparator) path) <$> config document_root

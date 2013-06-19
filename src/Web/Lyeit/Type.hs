@@ -6,6 +6,7 @@ module Web.Lyeit.Type
     , Config (..)
     , ConfigM
     , ListType (..)
+    , Title
     , ListFiles
     ) where
 
@@ -59,4 +60,6 @@ type ConfigM a = ReaderT Config ActionM a
 data ListType = Directory | Document | Other
   deriving (Show, Read, Eq, Ord)
 
-type ListFiles = Map ListType [FilePath]
+type Title = Text
+
+type ListFiles = Map ListType [(FilePath, Text)]
