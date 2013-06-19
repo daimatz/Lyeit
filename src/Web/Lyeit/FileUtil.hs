@@ -1,10 +1,13 @@
-{-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE DoAndIfThenElse     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Web.Lyeit.FileUtil where
 
 import           Control.Applicative ((<$>), (<*>))
+import           Control.Exception   (catch, throwIO)
 import           Control.Monad       (forM, join)
 import           Data.List           (elemIndices)
+import           Data.String         (IsString)
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Text.Lazy.IO   as TLIO
@@ -54,7 +57,7 @@ findGrep path queries = do
             return [filepath | all (`TL.isInfixOf` TL.pack filepath) queries]
         -- if FileType is Document, read it and check the content
         _     -> do
-            contents <- TLIO.readFile filepath
+            contents <- tryNTimes TLIO.readFile filepath
             -- TODO: once convert to text and search it
             -- TODO: case insensitive search (pull-request to case-insensitive?)
             return [filepath | all (`TL.isInfixOf` contents) queries]
@@ -79,3 +82,11 @@ getFileType path =
     case elemIndices '.' path of
         []      -> OtherFile
         indices -> read $ drop (1 + last indices) path
+
+tryNTimes :: forall s . (IsString s) => (FilePath -> IO s) -> FilePath -> IO s
+tryNTimes action path = inner 3
+  where
+    inner :: Int -> IO s
+    inner m = action path
+        `catch` (\(e :: IOError) ->
+            if m == 0 then throwIO e else inner (m-1))

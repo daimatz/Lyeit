@@ -78,7 +78,7 @@ actionDir path = do
         isDir <- liftIO $ doesDirectoryExist $ full </> f
         title <- case selectReader (getFileType f) of
             Just reader -> do
-                contents <- liftIO $ readFile $ full </> f
+                contents <- liftIO $ tryNTimes readFile $ full </> f
                 return $ fromMaybe (TL.pack f) $ getTitle $ reader P.def contents
             Nothing -> return $ TL.pack f
         return (isDir, title)
@@ -108,7 +108,7 @@ actionDir path = do
 actionFile :: FilePath -> ConfigM ()
 actionFile path = do
     full <- fullpath path
-    contents <- liftIO $ readFile full
+    contents <- liftIO $ tryNTimes readFile full
 
     let responseDocument reader = do
             let pandoc = reader P.def contents
