@@ -109,27 +109,27 @@ actionFile path = do
             f <- footHtmlWithPath full
             responseHtml $ h <> b <> f
 
-    case getFileType full of
-        Plain     -> responseFile full
-        JSON      -> responseFile full
-        Markdown  -> responseDocument P.readMarkdown
-        RST       -> responseDocument P.readRST
-        MediaWiki -> responseDocument P.readMediaWiki
-        DocBook   -> responseDocument P.readDocBook
-        TexTile   -> responseDocument P.readTextile
-        Html      -> responseHtml $ TL.pack contents
-        LaTeX     -> responseDocument P.readLaTeX
-        OtherFile -> responseFile full
+    maybe (responseFile full) responseDocument $
+        selectReader $ getFileType full
 
+selectReader :: FileType -> Maybe (P.ReaderOptions -> String -> P.Pandoc)
+selectReader tp = case tp of
+    Markdown  -> Just P.readMarkdown
+    RST       -> Just P.readRST
+    MediaWiki -> Just P.readMediaWiki
+    DocBook   -> Just P.readDocBook
+    TexTile   -> Just P.readTextile
+    LaTeX     -> Just P.readLaTeX
+    _         -> Nothing
+
+getTitle :: P.Pandoc -> Maybe String
+getTitle (P.Pandoc meta body) = case P.docTitle meta of
+    P.Str x : _ -> Just x
+    _ -> getTitleFromBody body
   where
-    getTitle :: P.Pandoc -> Maybe String
-    getTitle (P.Pandoc meta body) = case P.docTitle meta of
-        P.Str x : _ -> Just x
-        _ -> getTitleFromBody body
-      where
-        getTitleFromBody [] = Nothing
-        getTitleFromBody (P.Header _ (str,_,_) _ : _) = Just str
-        getTitleFromBody (_ : next) = getTitleFromBody next
+    getTitleFromBody [] = Nothing
+    getTitleFromBody (P.Header _ (str,_,_) _ : _) = Just str
+    getTitleFromBody (_ : next) = getTitleFromBody next
 
 response :: ConfigM () -> ConfigM ()
 response action = do
