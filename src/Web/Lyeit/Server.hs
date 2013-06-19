@@ -3,12 +3,13 @@ module Web.Lyeit.Server
     ) where
 
 import           Control.Applicative  ((<$>))
+import           Control.Monad        (liftM)
 import           Control.Monad.Trans  (lift, liftIO)
 import           Data.CaseInsensitive (mk)
 import           Data.List            (sort)
-import           Data.Map             (Map)
 import qualified Data.Map             as Map
-import           Data.Monoid          (mappend)
+import           Data.Maybe           (fromMaybe)
+import           Data.Monoid          (mappend, (<>))
 import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy       as TL
 import           System.Directory     (doesDirectoryExist, doesFileExist)
@@ -19,6 +20,7 @@ import qualified Web.Scotty           as S
 
 import           Web.Lyeit.Config
 import           Web.Lyeit.FileUtil
+import           Web.Lyeit.Html
 import           Web.Lyeit.Type
 
 server :: FilePath -> IO ()
@@ -39,41 +41,44 @@ server configPath = do
                 return (TL.unpack path, query)
 
         get (S.regex "^/*(.*)$") $ do
-            path   <-  dropTrailingPathSeparator
-                   <$> normalise
-                   <$> (document_root c </>)
-                   <$> TL.unpack
-                   <$> param "1"
-            isFile <- liftIO $ doesFileExist path
-            isDir  <- liftIO $ doesDirectoryExist path
-            case (isFile, isDir) of
-                (True, _) -> actionFile path
-                (_, True) -> actionDir path
-                _         -> next
+            path <-  dropTrailingPathSeparator
+                 <$> normalise
+                 <$> TL.unpack
+                 <$> param "1"
+            actionPath (if path == "." then "" else path)
 
         S.notFound $ S.html "<h1>Not Found.</h1>"
   where
     params  = lift S.params
     param   = lift . S.param
     raise   = lift . S.raise
-    next    = lift S.next
+
+actionPath :: FilePath -> ConfigM ()
+actionPath path = do
+    full   <- fullpath path
+    isFile <- liftIO $ doesFileExist full
+    isDir  <- liftIO $ doesDirectoryExist full
+    case (isFile, isDir) of
+        (True, _) -> actionFile path
+        (_, True) -> actionDir path
+        _         -> lift S.next
 
 actionSearch :: FilePath -> Text -> ConfigM ()
 actionSearch path query = do
-    fs <- liftIO $ findGrep path (TL.words query)
+    full <- fullpath path
+    fs <- liftIO $ findGrep full (TL.words query)
     responseHtml $ TL.pack $ show $ sort $ map mk fs
-
-type ListFiles = Map ListType [FilePath]
-
-data ListType = Directory | Document | Other
-  deriving (Show, Read, Eq, Ord)
 
 actionDir :: FilePath -> ConfigM ()
 actionDir path = do
-    fs <- liftIO $ dirFiles path
-    isDirs <- mapM (liftIO . doesDirectoryExist . (path </>)) fs
+    full <- fullpath path
+    fs <- liftIO $ dirFiles full
+    isDirs <- mapM (liftIO . doesDirectoryExist . (full </>)) fs
     let cts = foldl gather emptyDir  (zip fs isDirs)
-    responseHtml $ TL.pack (show cts)
+    h <- headHtml path (TL.pack $ "Index of " <> path) ""
+    b <- dirHtml path cts
+    f <- footHtmlWithPath full
+    responseHtml $ h <> b <> f
   where
     emptyDir = Map.fromList
         [ (Directory, [])
@@ -93,19 +98,38 @@ actionDir path = do
 
 actionFile :: FilePath -> ConfigM ()
 actionFile path = do
-    contents <- liftIO $ readFile path
-    let toHtml reader = TL.pack $ P.writeHtmlString P.def $ reader P.def contents
-    case getFileType path of
-        Plain     -> responseFile path
-        JSON      -> responseFile path
-        Markdown  -> responseHtml $ toHtml P.readMarkdown
-        RST       -> responseHtml $ toHtml P.readRST
-        MediaWiki -> responseHtml $ toHtml P.readMediaWiki
-        DocBook   -> responseHtml $ toHtml P.readDocBook
-        TexTile   -> responseHtml $ toHtml P.readTextile
+    full <- fullpath path
+    contents <- liftIO $ readFile full
+
+    let responseDocument reader = do
+            let pandoc = reader P.def contents
+                title = fromMaybe path $ getTitle pandoc
+            h <- headHtml path (TL.pack title) ""
+            let b = TL.pack $ P.writeHtmlString P.def pandoc
+            f <- footHtmlWithPath full
+            responseHtml $ h <> b <> f
+
+    case getFileType full of
+        Plain     -> responseFile full
+        JSON      -> responseFile full
+        Markdown  -> responseDocument P.readMarkdown
+        RST       -> responseDocument P.readRST
+        MediaWiki -> responseDocument P.readMediaWiki
+        DocBook   -> responseDocument P.readDocBook
+        TexTile   -> responseDocument P.readTextile
         Html      -> responseHtml $ TL.pack contents
-        LaTeX     -> responseHtml $ toHtml P.readLaTeX
-        OtherFile -> responseFile path
+        LaTeX     -> responseDocument P.readLaTeX
+        OtherFile -> responseFile full
+
+  where
+    getTitle :: P.Pandoc -> Maybe String
+    getTitle (P.Pandoc meta body) = case P.docTitle meta of
+        P.Str x : _ -> Just x
+        _ -> getTitleFromBody body
+      where
+        getTitleFromBody [] = Nothing
+        getTitleFromBody (P.Header _ (str,_,_) _ : _) = Just str
+        getTitleFromBody (_ : next) = getTitleFromBody next
 
 response :: ConfigM () -> ConfigM ()
 response action = do
@@ -119,3 +143,6 @@ responseHtml = response . lift . S.html
 
 responseFile :: FilePath -> ConfigM ()
 responseFile = response . lift . S.file
+
+fullpath :: FilePath -> ConfigM FilePath
+fullpath path = (</> path) `liftM` config document_root

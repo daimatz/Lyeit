@@ -5,13 +5,16 @@ module Web.Lyeit.Type
     ( FileType (..)
     , Config (..)
     , ConfigM
+    , ListType (..)
+    , ListFiles
     ) where
 
 import           Control.Monad.Reader (ReaderT)
 import           Data.Aeson.TH        (deriveJSON)
-import           Web.Scotty           (ActionM)
 import           Data.Data            (Data, Typeable)
+import           Data.Map             (Map)
 import           Data.Text.Lazy       (Text)
+import           Web.Scotty           (ActionM)
 
 data FileType
     = Plain
@@ -52,3 +55,8 @@ data Config = Config
 $(deriveJSON id ''Config)
 
 type ConfigM a = ReaderT Config ActionM a
+
+data ListType = Directory | Document | Other
+  deriving (Show, Read, Eq, Ord)
+
+type ListFiles = Map ListType [FilePath]

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>{{title}}</title>
+</head>
+<body>
+<div id="head">
+{{#paths}}
+<a href="{{request}}">{{partial}}</a>
+{{/paths}}
+<form action="/search" method="get">
+<input type="hidden" name="path" value="{{path}}" />
+<input type="text" name="query" value="{{query}}" size="24" />
+<input type="submit" value="search" />
+</form>
+</div>
+<div id="body">
+<h1>{{title}}</h1>

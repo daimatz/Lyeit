@@ -31,7 +31,11 @@ executable Lyeit
                      , directory
                      , filepath
                      , HTTP
+                     , hastache
                      , mtl
+                     , old-locale
                      , pandoc
                      , scotty
                      , text
+                     , time
+                     , unix
