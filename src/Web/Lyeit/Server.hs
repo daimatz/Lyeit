@@ -84,7 +84,7 @@ actionDir path = do
         return (isDir, title)
     let cts = foldl gather emptyDir ((uncurry zip3 . unzip) isDirs fs)
 
-    h <- headHtml path (TL.pack $ "Index of " <> path) ""
+    h <- headHtml path Nothing Nothing
     b <- dirHtml path cts
     f <- footHtmlWithPath full
     responseHtml $ h <> b <> f
@@ -113,7 +113,7 @@ actionFile path = do
     let responseDocument reader = do
             let pandoc = reader P.def contents
                 title = fromMaybe (TL.pack path) $ getTitle pandoc
-            h <- headHtml path title ""
+            h <- headHtml path (Just title) Nothing
             b <- TL.pack <$> flip P.writeHtmlString pandoc <$> def
             f <- footHtmlWithPath full
             responseHtml $ h <> b <> f
@@ -150,7 +150,7 @@ response action = do
 
 def :: ConfigM P.WriterOptions
 def = do
-    url <- config mathjax
+    url <- config mathjax_url
     return $ P.def
         { P.writerHTMLMathMethod  = P.MathJax url
         }
@@ -165,4 +165,5 @@ responseFile = response . lift . S.file
 --
 -- combine given path with document_root.
 fullpath :: FilePath -> ConfigM FilePath
-fullpath path = (</> dropWhile (== pathSeparator) path) <$> config document_root
+fullpath path
+    = (</> dropWhile (== pathSeparator) path) <$> config document_root_full

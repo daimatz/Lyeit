@@ -9,8 +9,10 @@ module Web.Lyeit.Html
 import           Control.Arrow           (first)
 import           Control.Monad.Trans     (MonadIO, liftIO)
 import           Data.Map                ((!))
+import           Data.Maybe              (fromMaybe)
 import           Data.Monoid             ((<>))
 import           Data.Text.Lazy          (Text)
+import qualified Data.Text.Lazy          as TL
 import           Data.Text.Lazy.Encoding (decodeUtf8)
 import           Data.Time               (formatTime)
 import           Data.Time.Clock.POSIX   (posixSecondsToUTCTime)
@@ -34,19 +36,22 @@ nullContext = HC.mkStrContext $ const $ H.MuVariable ("" :: Text)
 errorRef :: H.MuType m
 errorRef = H.MuVariable ("error" :: Text)
 
-headHtml :: FilePath -> Text -> Text -> ConfigM Text
+headHtml :: FilePath -> Maybe Text -> Maybe Text -> ConfigM Text
 headHtml path title query = do
-    root <- config document_root
+    root <- config document_root_show
+    mathjax <- config mathjax_url
 
     let splitter x y = (pathSeparators <> y, snd x </> y)
         paths = let splited = scanl splitter ("", pathSeparators) $
                         splitDirectories path
                 in  first (root </>) (head splited) : tail splited
 
-        context "title" = H.MuVariable title
-        context "query" = H.MuVariable query
+        context "title" = H.MuVariable $
+            fromMaybe (TL.pack $ concat $ "Index of " : map fst paths) title
+        context "query" = H.MuVariable $ fromMaybe "" query
         context "path"  = H.MuVariable $ pathSeparators <> path
         context "paths" = H.MuList $ map (HC.mkStrContext . listContext) paths
+        context "mathjax_url" = H.MuVariable mathjax
         context _       = errorRef
 
         listContext tuple "partial" = H.MuVariable $ fst tuple

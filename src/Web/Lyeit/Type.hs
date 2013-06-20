@@ -48,10 +48,11 @@ instance Read FileType where
         _          -> [(OtherFile, "")]
 
 data Config = Config
-    { host          :: Text
-    , port          :: Int
-    , document_root :: FilePath
-    , mathjax       :: String
+    { host               :: Text
+    , port               :: Int
+    , document_root_full :: FilePath
+    , document_root_show :: FilePath
+    , mathjax_url        :: String
     }
   deriving (Show, Eq, Ord)
 
@@ -60,7 +61,8 @@ instance FromJSON Config where
         <$> o .:  "host"
         <*> o .:  "port"
         <*> o .:  "document_root"
-        <*> o .:? "mathjax" .!= mathjax_url
+        <*> o .:  "document_root"
+        <*> o .:? "mathjax_url"   .!= mathjax_url_default
     parseJSON _ = error "failed to decode config file of JSON"
 
 type ConfigM a = ReaderT Config ActionM a
