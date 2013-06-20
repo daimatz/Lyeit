@@ -14,6 +14,7 @@ import qualified Data.Text.Lazy.IO   as TLIO
 import           System.Directory    (doesDirectoryExist, getDirectoryContents)
 import           System.FilePath     ((</>))
 
+import           Web.Lyeit.Const
 import           Web.Lyeit.Type
 
 -- | emurates `ls -a' command with not containing "." and "..".
@@ -84,9 +85,8 @@ getFileType path =
         indices -> read $ drop (1 + last indices) path
 
 tryNTimes :: forall s . (IsString s) => (FilePath -> IO s) -> FilePath -> IO s
-tryNTimes action path = inner 3
+tryNTimes action path = inner retry_times
   where
-    inner :: Int -> IO s
     inner m = action path
         `catch` (\(e :: IOError) ->
             if m == 0 then throwIO e else inner (m-1))

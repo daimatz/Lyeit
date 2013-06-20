@@ -3,12 +3,170 @@
 <head>
 <meta charset="utf-8">
 <title>{{title}}</title>
+<style type="text/css">
+body {
+    margin: auto;
+    padding: 0 2em;
+    max-width: 80%;
+    border-left: 1px solid black;
+    border-right: 1px solid black;
+    font-size: 100%;
+    line-height: 140%;
+}
+pre {
+    border: 1px solid #090909;
+    background-color: #fbfbfb;
+    padding: 0.5em;
+    margin: 0.5em 1em;
+}
+code {
+    border: 1px solid #cccccc;
+    background-color: #fbfbfb;
+    padding: 2px 0.5em;
+    margin: 0 0.5em;
+}
+a {
+    text-decoration: none;
+}
+a:link, a:visited, a:hover {
+    color: #4444cc;
+}
+a:hover {
+    text-decoration: underline;
+}
+h1, h2, h3 {
+    font-weight: bold;
+    color: #2f4f4f;
+}
+h1 {
+    font-size: 200%;
+    line-height: 100%;
+    margin: 1em 0;
+    border-bottom: 1px solid #2f4f4f;
+}
+h2 {
+    font-size: 175%;
+    line-height: 100%;
+    margin: 1em 0;
+    padding-left: 0.5em;
+    border-left: 0.5em solid #2f4f4f;
+}
+h3 {
+    font-size: 150%;
+    line-height: 100%;
+    margin: 1em 0;
+}
+h4, h5 {
+    font-weight: bold;
+    color: #000000;
+    margin: 1em 0 0.5em;
+}
+h4 { font-size: 125% }
+h5 { font-size: 100% }
+p {
+    margin: 0.7em 1em;
+    text-indent: 1em;
+}
+div.footnotes {
+    padding-top: 1em;
+    color: #090909;
+}
+div#head {
+    margin-top: 1em;
+    padding-bottom: 1em;
+    border-bottom: 1px dotted black;
+}
+div#head > form {
+    display: float;
+    float: right;
+    text-align: right;
+}
+a.filename {
+    color: #666666;
+}
+footer {
+    border-top: 1px dotted black;
+    padding: 0.5em;
+    font-size: 80%;
+    text-align: right;
+    margin: 5em 0 1em;
+}
+blockquote {
+    margin: 1em 3em;
+    border: 2px solid #999;
+    padding: 0.3em 0;
+    background-color: #f3fff3;
+}
+hr {
+    height: 1px;
+    border: none;
+    border-top: 1px solid black;
+}
+table {
+    padding: 0;
+    margin: 1em 2em;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table tr {
+    border-top: 1px solid #cccccc;
+    background-color: white;
+    margin: 0;
+    padding: 0;
+}
+table tr:nth-child(2n) {
+    background-color: #f8f8f8;
+}
+table tr th {
+    font-weight: bold;
+    border: 1px solid #cccccc;
+    text-align: left;
+    margin: 0;
+    padding: 6px 13px;
+}
+table tr td {
+    border: 1px solid #cccccc;
+    text-align: left;
+    margin: 0;
+    padding: 6px 13px;
+}
+table tr th :first-child, table tr td :first-child {
+    margin-top: 0;
+}
+table tr th :last-child, table tr td :last-child {
+    margin-bottom: 0;
+}
+pre > code {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+</style>
+<style type="text/css">
+code{white-space: pre;}
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+</style>
+<script src="{{mathjax}}"></script>
 </head>
 <body>
 <div id="head">
-{{#paths}}
-<a href="{{request}}">{{partial}}</a>
-{{/paths}}
+{{#paths}}<a href="{{request}}">{{partial}}</a>{{/paths}}
 <form action="/search" method="get">
 <input type="hidden" name="p" value="{{path}}" />
 <input type="text" name="q" value="{{query}}" size="24" />
@@ -16,4 +174,3 @@
 </form>
 </div>
 <div id="body">
-<h1>{{title}}</h1>

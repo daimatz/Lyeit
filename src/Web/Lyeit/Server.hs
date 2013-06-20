@@ -114,7 +114,7 @@ actionFile path = do
             let pandoc = reader P.def contents
                 title = fromMaybe (TL.pack path) $ getTitle pandoc
             h <- headHtml path title ""
-            let b = TL.pack $ P.writeHtmlString P.def pandoc
+            b <- TL.pack <$> flip P.writeHtmlString pandoc <$> def
             f <- footHtmlWithPath full
             responseHtml $ h <> b <> f
 
@@ -147,6 +147,13 @@ response action = do
     lift $ S.header "Pragma" "no-cache"
     lift $ S.header "Expires" "0"
     action
+
+def :: ConfigM P.WriterOptions
+def = do
+    url <- config mathjax
+    return $ P.def
+        { P.writerHTMLMathMethod  = P.MathJax url
+        }
 
 responseHtml :: Text -> ConfigM ()
 responseHtml = response . lift . S.html

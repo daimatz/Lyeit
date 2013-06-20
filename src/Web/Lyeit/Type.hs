@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE TemplateHaskell    #-}
-
 module Web.Lyeit.Type
     ( FileType (..)
     , Config (..)
@@ -10,12 +7,15 @@ module Web.Lyeit.Type
     , ListFiles
     ) where
 
+import           Control.Applicative  ((<$>), (<*>))
 import           Control.Monad.Reader (ReaderT)
-import           Data.Aeson.TH        (deriveJSON)
-import           Data.Data            (Data, Typeable)
 import           Data.Map             (Map)
 import           Data.Text.Lazy       (Text)
 import           Web.Scotty           (ActionM)
+
+import           Data.Aeson
+
+import           Web.Lyeit.Const
 
 data FileType
     = Plain
@@ -51,9 +51,17 @@ data Config = Config
     { host          :: Text
     , port          :: Int
     , document_root :: FilePath
+    , mathjax       :: String
     }
-  deriving (Show, Eq, Ord, Data, Typeable)
-$(deriveJSON id ''Config)
+  deriving (Show, Eq, Ord)
+
+instance FromJSON Config where
+    parseJSON (Object o) = Config
+        <$> o .:  "host"
+        <*> o .:  "port"
+        <*> o .:  "document_root"
+        <*> o .:? "mathjax" .!= mathjax_url
+    parseJSON _ = error "failed to decode config file of JSON"
 
 type ConfigM a = ReaderT Config ActionM a
 
