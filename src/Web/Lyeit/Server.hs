@@ -79,8 +79,8 @@ actionDir path = do
         title <- case selectReader (getFileType f) of
             Just reader -> do
                 contents <- liftIO $ tryNTimes readFile $ full </> f
-                return $ fromMaybe (TL.pack f) $ getTitle $ reader P.def contents
-            Nothing -> return $ TL.pack f
+                return $ fromMaybe f $ getTitle $ reader P.def contents
+            Nothing -> return f
         return (isDir, title)
     let cts = foldl gather emptyDir ((uncurry zip3 . unzip) isDirs fs)
 
@@ -112,11 +112,8 @@ actionFile path = do
 
     let responseDocument reader = do
             let pandoc = reader P.def contents
-                title = fromMaybe (TL.pack path) $ getTitle pandoc
-            h <- headHtml path (Just title) Nothing
-            b <- TL.pack <$> flip P.writeHtmlString pandoc <$> def
-            f <- footHtmlWithPath full
-            responseHtml $ h <> b <> f
+                -- title = fromMaybe (TL.pack path) $ getTitle pandoc
+            responseHtml =<< toHtml path "" (setTitle path pandoc)
 
     maybe (responseFile full) responseDocument $
         selectReader $ getFileType full
@@ -132,13 +129,20 @@ selectReader tp = case tp of
     Html      -> Just P.readHtml
     _         -> Nothing
 
+setTitle :: FilePath -> P.Pandoc -> P.Pandoc
+setTitle path pandoc@(P.Pandoc meta body) = case P.docTitle meta of
+    [] ->
+        let title = fromMaybe path $ getTitle pandoc in
+        P.Pandoc meta { P.docTitle = [P.Str title] } body
+    _ -> pandoc
+
 getTitle :: P.Pandoc -> Maybe Title
 getTitle (P.Pandoc meta body) = case P.docTitle meta of
     [] -> getTitleFromBody body
-    ils -> Just $ TL.pack $ stringify ils
+    ils -> Just $ stringify ils
   where
     getTitleFromBody [] = Nothing
-    getTitleFromBody (P.Header _ _ ils : _) = Just $ TL.pack $ stringify ils
+    getTitleFromBody (P.Header _ _ ils : _) = Just $ stringify ils
     getTitleFromBody (_ : next) = getTitleFromBody next
 
 response :: ConfigM () -> ConfigM ()
@@ -147,13 +151,6 @@ response action = do
     lift $ S.header "Pragma" "no-cache"
     lift $ S.header "Expires" "0"
     action
-
-def :: ConfigM P.WriterOptions
-def = do
-    url <- config mathjax_url
-    return $ P.def
-        { P.writerHTMLMathMethod  = P.MathJax url
-        }
 
 responseHtml :: Text -> ConfigM ()
 responseHtml = response . lift . S.html

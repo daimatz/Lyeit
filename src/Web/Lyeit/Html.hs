@@ -3,10 +3,12 @@ module Web.Lyeit.Html
     , dirHtml
     , footHtml
     , footHtmlWithPath
+    , toHtml
     )
     where
 
 import           Control.Arrow           (first)
+import           Control.Monad           (when)
 import           Control.Monad.Trans     (MonadIO, liftIO)
 import           Data.Map                ((!))
 import           Data.Maybe              (fromMaybe)
@@ -16,15 +18,62 @@ import qualified Data.Text.Lazy          as TL
 import           Data.Text.Lazy.Encoding (decodeUtf8)
 import           Data.Time               (formatTime)
 import           Data.Time.Clock.POSIX   (posixSecondsToUTCTime)
+import           System.Directory        (copyFile, doesFileExist)
 import           System.FilePath         (pathSeparators, splitDirectories,
                                           (</>))
 import           System.Locale           (defaultTimeLocale)
 import           System.Posix            (getFileStatus, modificationTime)
 import qualified Text.Hastache           as H
 import qualified Text.Hastache.Context   as HC
+import qualified Text.Pandoc             as P
 
 import           Web.Lyeit.Config
 import           Web.Lyeit.Type
+
+toHtml :: String -> String -> P.Pandoc -> ConfigM Text
+toHtml path query pandoc = do
+    template <- config template_path
+
+    exists <- liftIO $ doesFileExist template
+    when (not exists) $ liftIO $ copyFile "view/default.html" template
+
+    template_content <- liftIO $ readFile template
+
+    root <- config document_root_show
+    mathjax <- config mathjax_url
+
+    let def = P.def
+            { P.writerStandalone = True
+            , P.writerTemplate = template_content
+            , P.writerTableOfContents = True
+            , P.writerHTMLMathMethod = P.MathJax mathjax
+            , P.writerVariables =
+                [ ("mathjax_url", mathjax)
+                , ("path_links", path_links root path)
+                , ("search_form", search_form path query)
+                ]
+            }
+    return $ TL.pack $ P.writeHtmlString def pandoc
+
+path_links :: String -> String -> String
+path_links root path = concatMap format paths
+  where
+    splitter x y = (pathSeparators <> y, snd x </> y)
+    paths = let splited = scanl splitter ("", pathSeparators) $
+                    splitDirectories path
+            in  first (root </>) (head splited) : tail splited
+    format (partial, request) = concat
+        [ "<a href=\"", request, "\">", partial, "</a>"
+        ]
+
+search_form :: String -> String -> String
+search_form p q = concat
+    [ "<form action=\"/search\" method=\"get\">"
+    , "<input type=\"hidden\" name=\"p\" value=\"", p, "\" />"
+    , "<input type=\"text\" name=\"q\" value=\"", q, "\" size=\"24\" />"
+    , "<input type=\"submit\" value=\"search\" />"
+    , "</form>"
+    ]
 
 mustache :: MonadIO m => FilePath -> H.MuContext m -> m Text
 mustache path context = return . decodeUtf8

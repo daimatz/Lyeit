@@ -29,10 +29,12 @@ readConfig path = do
             decode contents
 
     document_root_full_ <- tildaToHome $ document_root_full c
+    template_path_      <- tildaToHome $ template_path c
 
     return $ c
         { document_root_full = normalise document_root_full_
         , document_root_show = normalise $ document_root_show c
+        , template_path      = normalise template_path_
         }
 
 normalise :: FilePath -> FilePath

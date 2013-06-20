@@ -53,6 +53,7 @@ data Config = Config
     , document_root_full :: FilePath
     , document_root_show :: FilePath
     , mathjax_url        :: String
+    , template_path      :: FilePath
     }
   deriving (Show, Eq, Ord)
 
@@ -63,6 +64,7 @@ instance FromJSON Config where
         <*> o .:  "document_root"
         <*> o .:  "document_root"
         <*> o .:? "mathjax_url"   .!= mathjax_url_default
+        <*> o .:? "template_path" .!= template_path_default
     parseJSON _ = error "failed to decode config file of JSON"
 
 type ConfigM a = ReaderT Config ActionM a
@@ -70,6 +72,6 @@ type ConfigM a = ReaderT Config ActionM a
 data ListType = Directory | Document | Other
   deriving (Show, Read, Eq, Ord)
 
-type Title = Text
+type Title = String
 
-type ListFiles = Map ListType [(FilePath, Text)]
+type ListFiles = Map ListType [(FilePath, Title)]
