@@ -9,7 +9,7 @@ import           Data.CaseInsensitive (mk)
 import           Data.List            (sort)
 import qualified Data.Map             as Map
 import           Data.Maybe           (fromMaybe)
-import           Data.Monoid          (mappend, (<>))
+import           Data.Monoid          (mappend)
 import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy       as TL
 import           System.Directory     (doesDirectoryExist, doesFileExist,
@@ -84,11 +84,10 @@ actionDir path = do
             Nothing -> return f
         return (isDir, title)
     let cts = foldl gather emptyDir ((uncurry zip3 . unzip) isDirs fs)
+        body = dirHtml path cts
 
-    h <- headHtml path Nothing Nothing
-    b <- dirHtml path cts
-    f <- footHtmlWithPath full
-    responseHtml $ h <> b <> f
+    pandoc <- setMeta path $ P.readMarkdown P.def body
+    responseHtml =<< toHtml path "" pandoc
   where
     emptyDir = Map.fromList
         [ (Directory, [])
@@ -109,10 +108,10 @@ actionDir path = do
 actionFile :: FilePath -> ConfigM ()
 actionFile path = do
     full <- fullpath path
-    contents <- liftIO $ tryNTimes readFile full
+    body <- liftIO $ tryNTimes readFile full
 
     let responseDocument reader = do
-            pandoc <- setMeta path $ reader P.def contents
+            pandoc <- setMeta path $ reader P.def body
             responseHtml =<< toHtml path "" pandoc
 
     maybe (responseFile full) responseDocument $ selectReader $ getFileType full
