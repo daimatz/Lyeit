@@ -11,7 +11,7 @@ import           Data.String         (IsString)
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Text.Lazy.IO   as TLIO
-import           Data.Time           (UTCTime, formatTime)
+import           Data.Time           (UTCTime, formatTime, utcToLocalZonedTime)
 import           System.Directory    (doesDirectoryExist, getDirectoryContents)
 import           System.FilePath     ((</>))
 import           System.Locale       (defaultTimeLocale)
@@ -93,5 +93,7 @@ tryNTimes action path = inner retry_times
         `catch` (\(e :: IOError) ->
             if m == 0 then throwIO e else inner (m-1))
 
-timeFormat :: UTCTime -> String
-timeFormat time = formatTime defaultTimeLocale "%F (%a) %T" time
+timeFormat :: UTCTime -> IO String
+timeFormat utctime = do
+    zonedtime <- utcToLocalZonedTime utctime
+    return $ formatTime defaultTimeLocale "%F (%a) %T" zonedtime

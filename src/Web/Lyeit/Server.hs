@@ -12,7 +12,8 @@ import           Data.Maybe           (fromMaybe)
 import           Data.Monoid          (mappend, (<>))
 import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy       as TL
-import           System.Directory     (doesDirectoryExist, doesFileExist, getModificationTime)
+import           System.Directory     (doesDirectoryExist, doesFileExist,
+                                       getModificationTime)
 import           System.FilePath      (dropTrailingPathSeparator, normalise,
                                        pathSeparator, (</>))
 import qualified Text.Pandoc          as P
@@ -130,12 +131,12 @@ selectReader tp = case tp of
 setMeta :: FilePath -> P.Pandoc -> ConfigM P.Pandoc
 setMeta path pandoc@(P.Pandoc meta body) = do
     full <- fullpath path
-    time <- liftIO $ getModificationTime full
+    time <- liftIO $ timeFormat =<< getModificationTime full
 
     let title = case P.docTitle meta of
             [] -> [P.Str $ fromMaybe path $ getTitle pandoc]
             t  -> t
-        date  = [P.Str $ timeFormat time]
+        date  = [P.Str time]
 
     return $ P.Pandoc meta { P.docTitle = title, P.docDate = date } body
 
