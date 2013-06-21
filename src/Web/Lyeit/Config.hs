@@ -8,6 +8,7 @@ import           Control.Monad.Reader (asks, runReaderT)
 import           Data.Aeson           (decode)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Maybe           (fromMaybe)
+import           Prelude              hiding (FilePath)
 import           System.Environment   (getEnv)
 import qualified System.FilePath      as FP
 import           Web.Scotty           (ActionM)
@@ -21,29 +22,29 @@ runConfigM = flip runReaderT
 config :: (Config -> a) -> ConfigM a
 config = asks
 
-readConfig :: FilePath -> IO Config
-readConfig path = do
-    contents <- tryNTimes BSL.readFile path
+readConfig :: FullPath -> IO Config
+readConfig (FullPath full) = do
+    contents <- tryNTimes BSL.readFile (FullPath full)
 
     let c = fromMaybe (error "failed to decode config file of JSON") $
             decode contents
 
-    document_root_full_ <- tildaToHome $ document_root_full c
-    template_path_      <- tildaToHome $ template_path c
+    (FullPath dfull) <- tildaToHome $ document_root_full c
+    (FullPath tfull) <- tildaToHome $ template_path c
 
     return $ c
-        { document_root_full = normalise document_root_full_
+        { document_root_full = FullPath $ normalise dfull
         , document_root_show = normalise $ document_root_show c
-        , template_path      = normalise template_path_
+        , template_path      = FullPath $ normalise tfull
         }
 
-normalise :: FilePath -> FilePath
+normalise :: String -> String
 normalise = FP.dropTrailingPathSeparator . FP.normalise
 
-tildaToHome :: FilePath -> IO FilePath
-tildaToHome path = do
+tildaToHome :: FullPath -> IO FullPath
+tildaToHome (FullPath path) = do
     home <- getEnv "HOME"
-    return $ replace '~' home path
+    return $ FullPath $ replace '~' home path
   where
     replace _ _ [] = []
     replace from to (s:ss) = if s == from

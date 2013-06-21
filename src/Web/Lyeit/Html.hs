@@ -4,24 +4,24 @@ module Web.Lyeit.Html
     )
     where
 
-import           Control.Arrow           (first)
-import           Control.Monad           (unless)
-import           Control.Monad.Trans     (MonadIO, liftIO)
-import           Data.Map                ((!))
-import           Data.Monoid             ((<>))
-import           Data.Text.Lazy          (Text)
-import qualified Data.Text.Lazy          as TL
-import           System.Directory        (copyFile, doesFileExist)
-import           System.FilePath         (pathSeparators, splitDirectories,
-                                          (</>))
-import qualified Text.Pandoc             as P
+import           Control.Arrow       (first)
+import           Control.Monad       (unless)
+import           Control.Monad.Trans (MonadIO, liftIO)
+import           Data.Map            ((!))
+import           Data.Monoid         ((<>))
+import           Data.Text.Lazy      (Text)
+import qualified Data.Text.Lazy      as TL
+import           Prelude             hiding (FilePath)
+import           System.Directory    (copyFile, doesFileExist)
+import           System.FilePath     (pathSeparators, splitDirectories, (</>))
+import qualified Text.Pandoc         as P
 
 import           Web.Lyeit.Config
 import           Web.Lyeit.Type
 
-toHtml :: String -> String -> P.Pandoc -> ConfigM Text
-toHtml path query pandoc = do
-    template <- config template_path
+toHtml :: RequestPath -> String -> P.Pandoc -> ConfigM Text
+toHtml (RequestPath request) query pandoc = do
+    (FullPath template) <- config template_path
 
     exists <- liftIO $ doesFileExist template
     unless exists $ liftIO $ copyFile "view/default.html" template
@@ -31,6 +31,7 @@ toHtml path query pandoc = do
     root <- config document_root_show
     mathjax <- config mathjax_url
 
+
     let def = P.def
             { P.writerStandalone = True
             , P.writerTemplate = template_content
@@ -39,8 +40,8 @@ toHtml path query pandoc = do
             , P.writerSectionDivs = True
             , P.writerVariables =
                 [ ("mathjax_url", mathjax)
-                , ("path_links", path_links root path)
-                , ("search_form", search_form path query)
+                , ("path_links", path_links root request)
+                , ("search_form", search_form request query)
                 ]
             }
     return $ TL.pack $ P.writeHtmlString def pandoc
@@ -65,8 +66,8 @@ search_form p q = concat
     , "</form>"
     ]
 
-dirHtml :: FilePath -> ListFiles -> String
-dirHtml request cts =
+dirHtml :: RequestPath -> ListFiles -> String
+dirHtml (RequestPath request) cts =
     let headers = [Directory, Document, Other] in
     concat $ concat $ flip map headers $ \h ->
         let c = cts ! h in
@@ -74,7 +75,7 @@ dirHtml request cts =
         ++ map (uncurry list) c
         ++ ["</ul></div>"]
   where
-    list path title
-        = concat ["<li><a href=\"", requestPath path, "\">", title, "</a></li>"]
+    list (RelativePath relative) title
+        = concat ["<li><a href=\"", requestPath relative, "\">", title, "</a></li>"]
     requestPath path
         = (if null request then "" else "/" <> request) <> "/" <> path

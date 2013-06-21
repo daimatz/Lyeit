@@ -12,6 +12,7 @@ import           Data.Maybe           (fromMaybe)
 import           Data.Monoid          (mappend)
 import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy       as TL
+import           Prelude              hiding (FilePath)
 import           System.Directory     (doesDirectoryExist, doesFileExist,
                                        getModificationTime)
 import           System.FilePath      (dropTrailingPathSeparator, normalise,
@@ -25,7 +26,7 @@ import           Web.Lyeit.FileUtil
 import           Web.Lyeit.Html
 import           Web.Lyeit.Type
 
-server :: FilePath -> IO ()
+server :: FullPath -> IO ()
 server configPath = do
     c <- readConfig configPath
 
@@ -40,14 +41,14 @@ server configPath = do
                 -- Maybe Monad
                 path  <- lookup "p" ps
                 query <- lookup "q" ps
-                return (TL.unpack path, query)
+                return (RequestPath $ TL.unpack path, query)
 
         get (S.regex "^/*(.*)$") $ do
             path <-  dropTrailingPathSeparator
                  <$> normalise
                  <$> TL.unpack
                  <$> param "1"
-            actionPath (if path == "." then "" else path)
+            actionPath $ RequestPath (if path == "." then "" else path)
 
         S.notFound $ S.html "<h1>Not Found.</h1>"
   where
@@ -55,66 +56,67 @@ server configPath = do
     param   = lift . S.param
     raise   = lift . S.raise
 
-actionPath :: FilePath -> ConfigM ()
-actionPath path = do
-    full   <- fullpath path
+actionPath :: RequestPath -> ConfigM ()
+actionPath (RequestPath request) = do
+    (FullPath full) <- fullpath (RequestPath request)
     isFile <- liftIO $ doesFileExist full
     isDir  <- liftIO $ doesDirectoryExist full
     case (isFile, isDir) of
-        (True, _) -> actionFile path
-        (_, True) -> actionDir path
+        (True, _) -> actionFile (RequestPath request)
+        (_, True) -> actionDir (RequestPath request)
         _         -> lift S.next
 
-actionSearch :: FilePath -> Text -> ConfigM ()
-actionSearch path query = do
-    full <- fullpath path
-    fs <- liftIO $ findGrep full (TL.words query)
-    responseHtml $ TL.pack $ show $ sort $ map mk fs
+actionSearch :: RequestPath -> Text -> ConfigM ()
+actionSearch (RequestPath request) query = do
+    (FullPath full) <- fullpath (RequestPath request)
+    fs <- liftIO $ findGrep (FullPath full) (TL.words query)
+    responseHtml $ TL.pack $ show $ sort $ map (\(FullPath f) -> mk f) fs
 
-actionDir :: FilePath -> ConfigM ()
-actionDir path = do
-    full <- fullpath path
-    fs <- liftIO $ dirFiles full
-    isDirs <- forM fs $ \f -> do
+actionDir :: RequestPath -> ConfigM ()
+actionDir (RequestPath request) = do
+    (FullPath full) <- fullpath (RequestPath request)
+    fs <- liftIO $ dirFiles (FullPath full)
+    isDirs <- forM fs $ \(RelativePath f) -> do
         isDir <- liftIO $ doesDirectoryExist $ full </> f
         title <- case selectReader (getFileType f) of
             Just reader -> do
-                contents <- liftIO $ tryNTimes readFile $ full </> f
+                contents <- liftIO $ tryNTimes readFile (FullPath $ full </> f)
                 return $ fromMaybe f $ getTitle $ reader P.def contents
             Nothing -> return f
         return (isDir, title)
     let cts = foldl gather emptyDir ((uncurry zip3 . unzip) isDirs fs)
-        body = dirHtml path cts
+        body = dirHtml (RequestPath request) cts
 
-    pandoc <- setMeta path $ P.readMarkdown P.def body
-    responseHtml =<< toHtml path "" pandoc
+    pandoc <- setMeta (RequestPath request) $ P.readMarkdown P.def body
+    responseHtml =<< toHtml (RequestPath request) "" pandoc
   where
     emptyDir = Map.fromList
         [ (Directory, [])
         , (Document, [])
         , (Other, [])
         ]
-    add :: ListFiles -> ListType -> (FilePath, Title) -> ListFiles
+    add :: ListFiles -> ListType -> (RelativePath, Title) -> ListFiles
     add lst genre p = Map.insertWith mappend genre [p] lst
-    gather :: ListFiles -> (Bool, Title, FilePath) -> ListFiles
-    gather lst (d, t, f) =
+    gather :: ListFiles -> (Bool, Title, RelativePath) -> ListFiles
+    gather lst (d, t, RelativePath f) =
         if d then
-            add lst Directory (f, t)
+            add lst Directory (RelativePath f, t)
         else
             case getFileType f of
-                OtherFile -> add lst Other (f, t)
-                _         -> add lst Document (f, t)
+                OtherFile -> add lst Other (RelativePath f, t)
+                _         -> add lst Document (RelativePath f, t)
 
-actionFile :: FilePath -> ConfigM ()
-actionFile path = do
-    full <- fullpath path
-    body <- liftIO $ tryNTimes readFile full
+actionFile :: RequestPath -> ConfigM ()
+actionFile (RequestPath request) = do
+    (FullPath full) <- fullpath (RequestPath request)
+    body <- liftIO $ tryNTimes readFile (FullPath full)
 
     let responseDocument reader = do
-            pandoc <- setMeta path $ reader P.def body
-            responseHtml =<< toHtml path "" pandoc
+            pandoc <- setMeta (RequestPath request) $ reader P.def body
+            responseHtml =<< toHtml (RequestPath request) "" pandoc
 
-    maybe (responseFile full) responseDocument $ selectReader $ getFileType full
+    maybe (responseFile $ FullPath full) responseDocument $
+        selectReader $ getFileType full
 
 selectReader :: FileType -> Maybe (P.ReaderOptions -> String -> P.Pandoc)
 selectReader tp = case tp of
@@ -127,13 +129,13 @@ selectReader tp = case tp of
     Html      -> Just P.readHtml
     _         -> Nothing
 
-setMeta :: FilePath -> P.Pandoc -> ConfigM P.Pandoc
-setMeta path pandoc@(P.Pandoc meta body) = do
-    full <- fullpath path
+setMeta :: RequestPath -> P.Pandoc -> ConfigM P.Pandoc
+setMeta (RequestPath request) pandoc@(P.Pandoc meta body) = do
+    (FullPath full) <- fullpath (RequestPath request)
     time <- liftIO $ timeFormat =<< getModificationTime full
 
     let title = case P.docTitle meta of
-            [] -> [P.Str $ fromMaybe path $ getTitle pandoc]
+            [] -> [P.Str $ fromMaybe request $ getTitle pandoc]
             t  -> t
         date  = [P.Str time]
 
@@ -158,12 +160,13 @@ response action = do
 responseHtml :: Text -> ConfigM ()
 responseHtml = response . lift . S.html
 
-responseFile :: FilePath -> ConfigM ()
-responseFile = response . lift . S.file
+responseFile :: FullPath -> ConfigM ()
+responseFile (FullPath full) = response $ lift $ S.file full
 
 -- | fullpath
 --
 -- combine given path with document_root.
-fullpath :: FilePath -> ConfigM FilePath
-fullpath path
-    = (</> dropWhile (== pathSeparator) path) <$> config document_root_full
+fullpath :: RequestPath -> ConfigM FullPath
+fullpath (RequestPath request) = do
+    (FullPath dfull) <- config document_root_full
+    return $ FullPath $ dfull </> dropWhile (== pathSeparator) request

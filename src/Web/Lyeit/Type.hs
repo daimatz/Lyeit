@@ -1,11 +1,4 @@
-module Web.Lyeit.Type
-    ( FileType (..)
-    , Config (..)
-    , ConfigM
-    , ListType (..)
-    , Title
-    , ListFiles
-    ) where
+module Web.Lyeit.Type where
 
 import           Control.Applicative  ((<$>), (<*>))
 import           Control.Monad.Reader (ReaderT)
@@ -50,10 +43,10 @@ instance Read FileType where
 data Config = Config
     { host               :: Text
     , port               :: Int
-    , document_root_full :: FilePath
-    , document_root_show :: FilePath
+    , document_root_full :: FullPath
+    , document_root_show :: String
     , mathjax_url        :: String
-    , template_path      :: FilePath
+    , template_path      :: FullPath
     }
   deriving (Show, Eq, Ord)
 
@@ -61,10 +54,12 @@ instance FromJSON Config where
     parseJSON (Object o) = Config
         <$> o .:  "host"
         <*> o .:  "port"
+        -- Not Yet FullPath !!
+        <*> fmap FullPath (o .:  "document_root")
         <*> o .:  "document_root"
-        <*> o .:  "document_root"
-        <*> o .:? "mathjax_url"   .!= mathjax_url_default
-        <*> o .:? "template_path" .!= template_path_default
+        <*> o .:? "mathjax_url" .!= mathjax_url_default
+        -- Not Yet FullPath !!
+        <*> fmap FullPath (o .:? "template_path" .!= template_path_default)
     parseJSON _ = error "failed to decode config file of JSON"
 
 type ConfigM a = ReaderT Config ActionM a
@@ -74,4 +69,11 @@ data ListType = Directory | Document | Other
 
 type Title = String
 
-type ListFiles = Map ListType [(FilePath, Title)]
+type ListFiles = Map ListType [(RelativePath, Title)]
+
+newtype FullPath = FullPath FilePath
+  deriving (Show, Read, Eq, Ord)
+newtype RelativePath = RelativePath FilePath
+  deriving (Show, Read, Eq, Ord)
+newtype RequestPath = RequestPath FilePath
+  deriving (Show, Read, Eq, Ord)

@@ -12,58 +12,63 @@ import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Text.Lazy.IO   as TLIO
 import           Data.Time           (UTCTime, formatTime, utcToLocalZonedTime)
+import           Prelude             hiding (FilePath)
 import           System.Directory    (doesDirectoryExist, getDirectoryContents)
 import           System.FilePath     ((</>))
 import           System.Locale       (defaultTimeLocale)
+import qualified System.Posix        as Posix
 
 import           Web.Lyeit.Const
 import           Web.Lyeit.Type
 
 -- | emurates `ls -a' command with not containing "." and "..".
-dirFiles :: FilePath -> IO [FilePath]
-dirFiles dir = filter (`notElem` [".", ".."]) <$> getDirectoryContents dir
+dirFiles :: FullPath -> IO [RelativePath]
+dirFiles (FullPath full) = do
+     ls <- filter (`notElem` [".", ".."]) <$> getDirectoryContents full
+     return $ map RelativePath ls
 
 -- | emurates `find - grep' command.
 -- find path -exec grep queries
-findGrep :: FilePath -> [Text] -> IO [FilePath]
-findGrep path queries = do
+findGrep :: FullPath -> [Text] -> IO [FullPath]
+findGrep (FullPath path) queries = do
     isDir <- doesDirectoryExist path
     if isDir then
-        matchDir path
+        matchDir $ FullPath path
     else
-        matchFile path
+        matchFile $ FullPath path
   where
-    inner :: FilePath -> IO [FilePath]
-    inner dir = do
-        fs <- dirFiles dir
-        isDirs <- mapM (doesDirectoryExist . (dir </>)) fs
-        res <- forM (zip fs isDirs) $ \(f, d) ->
-            let newPath = dir </> f in
+    inner :: FullPath -> IO [FullPath]
+    inner (FullPath full) = do
+        fs <- dirFiles (FullPath full)
+        isDirs <- forM fs $ \(RelativePath f) -> doesDirectoryExist $ full </> f
+        res <- forM (zip fs isDirs) $ \(RelativePath f, d) ->
+            let newPath = FullPath $ full </> f in
             if d then
                 matchDir newPath
             else
                 matchFile newPath
         return $ join res
-    matchToFilePath :: FilePath -> Bool
-    matchToFilePath pathstr = all (`TL.isInfixOf` TL.pack pathstr) queries
-    matchDir :: FilePath -> IO [FilePath]
-    matchDir dirpath =
+    matchToFilePath :: FullPath -> Bool
+    matchToFilePath (FullPath full)
+        = all (`TL.isInfixOf` TL.pack full) queries
+    matchDir :: FullPath -> IO [FullPath]
+    matchDir dir =
         -- if dirpath is directory, check the directory name
-        if matchToFilePath dirpath then
-            (:) <$> return dirpath <*> inner dirpath
+        if matchToFilePath dir then
+            (:) <$> return dir <*> inner dir
         else
-            inner dirpath
-    matchFile :: FilePath -> IO [FilePath]
-    matchFile filepath = case getFileType filepath of
+            inner dir
+    matchFile :: FullPath -> IO [FullPath]
+    matchFile (FullPath full) = case getFileType full of
         -- if FileType is not Document, check the file name
         OtherFile ->
-            return [filepath | all (`TL.isInfixOf` TL.pack filepath) queries]
+            return [FullPath full | all (`TL.isInfixOf` TL.pack full) queries]
         -- if FileType is Document, read it and check the content
         _     -> do
-            contents <- tryNTimes TLIO.readFile filepath
+            contents <- tryNTimes TLIO.readFile (FullPath full)
             -- TODO: once convert to text and search it
             -- TODO: case insensitive search (pull-request to case-insensitive?)
-            return [filepath | all (`TL.isInfixOf` contents) queries]
+            return [FullPath full | all (`TL.isInfixOf` contents) queries]
 
 -- | getFileType
 -- convert filename to filetype
@@ -80,18 +85,21 @@ findGrep path queries = do
 -- OtherFile
 -- >>> getFileType ".example.json"
 -- JSON
-getFileType :: FilePath -> FileType
+getFileType :: String -> FileType
 getFileType path =
     case elemIndices '.' path of
         []      -> OtherFile
         indices -> read $ drop (1 + last indices) path
 
-tryNTimes :: forall s . (IsString s) => (FilePath -> IO s) -> FilePath -> IO s
-tryNTimes action path = inner retry_times
+tryNTimes :: forall s . (IsString s) => (String -> IO s) -> FullPath -> IO s
+tryNTimes action (FullPath path) = inner retry_times
   where
     inner m = action path
         `catch` (\(e :: IOError) ->
             if m == 0 then throwIO e else inner (m-1))
+
+getFileSize :: FullPath -> IO Posix.FileOffset
+getFileSize (FullPath full) = Posix.fileSize <$> Posix.getFileStatus full
 
 timeFormat :: UTCTime -> IO String
 timeFormat utctime = do

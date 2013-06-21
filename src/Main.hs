@@ -3,8 +3,9 @@ module Main where
 import           System.Environment (getArgs)
 
 import           Web.Lyeit.Server
+import           Web.Lyeit.Type
 
 main :: IO ()
 main = do
     args <- getArgs
-    server (args !! 0)
+    server $ FullPath (args !! 0)
