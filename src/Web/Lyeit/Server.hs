@@ -12,7 +12,7 @@ import           Data.Maybe           (fromMaybe)
 import           Data.Monoid          (mappend, (<>))
 import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy       as TL
-import           System.Directory     (doesDirectoryExist, doesFileExist)
+import           System.Directory     (doesDirectoryExist, doesFileExist, getModificationTime)
 import           System.FilePath      (dropTrailingPathSeparator, normalise,
                                        pathSeparator, (</>))
 import qualified Text.Pandoc          as P
@@ -111,12 +111,10 @@ actionFile path = do
     contents <- liftIO $ tryNTimes readFile full
 
     let responseDocument reader = do
-            let pandoc = reader P.def contents
-                -- title = fromMaybe (TL.pack path) $ getTitle pandoc
-            responseHtml =<< toHtml path "" (setTitle path pandoc)
+            pandoc <- setMeta path $ reader P.def contents
+            responseHtml =<< toHtml path "" pandoc
 
-    maybe (responseFile full) responseDocument $
-        selectReader $ getFileType full
+    maybe (responseFile full) responseDocument $ selectReader $ getFileType full
 
 selectReader :: FileType -> Maybe (P.ReaderOptions -> String -> P.Pandoc)
 selectReader tp = case tp of
@@ -129,12 +127,17 @@ selectReader tp = case tp of
     Html      -> Just P.readHtml
     _         -> Nothing
 
-setTitle :: FilePath -> P.Pandoc -> P.Pandoc
-setTitle path pandoc@(P.Pandoc meta body) = case P.docTitle meta of
-    [] ->
-        let title = fromMaybe path $ getTitle pandoc in
-        P.Pandoc meta { P.docTitle = [P.Str title] } body
-    _ -> pandoc
+setMeta :: FilePath -> P.Pandoc -> ConfigM P.Pandoc
+setMeta path pandoc@(P.Pandoc meta body) = do
+    full <- fullpath path
+    time <- liftIO $ getModificationTime full
+
+    let title = case P.docTitle meta of
+            [] -> [P.Str $ fromMaybe path $ getTitle pandoc]
+            t  -> t
+        date  = [P.Str $ timeFormat time]
+
+    return $ P.Pandoc meta { P.docTitle = title, P.docDate = date } body
 
 getTitle :: P.Pandoc -> Maybe Title
 getTitle (P.Pandoc meta body) = case P.docTitle meta of
