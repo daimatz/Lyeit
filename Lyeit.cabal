@@ -31,7 +31,6 @@ executable Lyeit
                      , directory
                      , filepath
                      , HTTP
-                     , hastache
                      , mtl
                      , old-locale
                      , pandoc

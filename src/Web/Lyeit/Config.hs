@@ -9,7 +9,7 @@ import           Data.Aeson           (decode)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Maybe           (fromMaybe)
 import           Prelude              hiding (FilePath)
-import           System.Environment   (getEnv)
+import           System.Directory     (getHomeDirectory)
 import qualified System.FilePath      as FP
 import           Web.Scotty           (ActionM)
 
@@ -43,8 +43,8 @@ normalise = FP.dropTrailingPathSeparator . FP.normalise
 
 tildaToHome :: FullPath -> IO FullPath
 tildaToHome (FullPath path) = do
-    home <- getEnv "HOME"
-    return $ FullPath $ replace '~' home path
+    home <- getHomeDirectory
+    return $ FullPath $ FP.normalise $ replace '~' home path
   where
     replace _ _ [] = []
     replace from to (s:ss) = if s == from
