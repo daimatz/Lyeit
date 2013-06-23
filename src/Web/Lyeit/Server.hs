@@ -16,7 +16,7 @@ import           Prelude              hiding (FilePath)
 import           System.Directory     (doesDirectoryExist, doesFileExist,
                                        getModificationTime)
 import           System.FilePath      (dropTrailingPathSeparator, normalise,
-                                       pathSeparator, (</>))
+                                       (</>))
 import qualified Text.Pandoc          as P
 import           Text.Pandoc.Shared   (stringify)
 import qualified Web.Scotty           as S
@@ -162,11 +162,3 @@ responseHtml = response . lift . S.html
 
 responseFile :: FullPath -> ConfigM ()
 responseFile (FullPath full) = response $ lift $ S.file full
-
--- | fullpath
---
--- combine given path with document_root.
-fullpath :: RequestPath -> ConfigM FullPath
-fullpath (RequestPath request) = do
-    (FullPath dfull) <- config document_root_full
-    return $ FullPath $ dfull </> dropWhile (== pathSeparator) request

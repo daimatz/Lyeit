@@ -13,7 +13,8 @@ import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
 import           Prelude             hiding (FilePath)
 import           System.Directory    (copyFile, doesFileExist)
-import           System.FilePath     (pathSeparators, splitDirectories, (</>))
+import           System.FilePath     ((</>))
+import qualified System.FilePath     as FP
 import qualified Text.Pandoc         as P
 
 import           Web.Lyeit.Config
@@ -30,7 +31,6 @@ toHtml (RequestPath request) query pandoc = do
 
     root <- config document_root_show
     mathjax <- config mathjax_url
-
 
     let def = P.def
             { P.writerStandalone = True
@@ -49,9 +49,9 @@ toHtml (RequestPath request) query pandoc = do
 path_links :: String -> String -> String
 path_links root path = concatMap format paths
   where
-    splitter x y = (pathSeparators <> y, snd x </> y)
-    paths = let splited = scanl splitter ("", pathSeparators) $
-                    splitDirectories path
+    splitter x y = ([FP.pathSeparator] <> y, snd x </> y)
+    paths = let splited = scanl splitter ("", [FP.pathSeparator]) $
+                    FP.splitDirectories path
             in  first (root </>) (head splited) : tail splited
     format (partial, request) = concat
         [ "<a href=\"", request, "\">", partial, "</a>"

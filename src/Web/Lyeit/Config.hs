@@ -13,7 +13,6 @@ import           System.Directory     (getHomeDirectory)
 import qualified System.FilePath      as FP
 import           Web.Scotty           (ActionM)
 
-import           Web.Lyeit.FileUtil
 import           Web.Lyeit.Type
 
 runConfigM :: Config -> ConfigM a -> ActionM a
@@ -24,7 +23,7 @@ config = asks
 
 readConfig :: FullPath -> IO Config
 readConfig (FullPath full) = do
-    contents <- tryNTimes BSL.readFile (FullPath full)
+    contents <- BSL.readFile full
 
     let c = fromMaybe (error "failed to decode config file of JSON") $
             decode contents

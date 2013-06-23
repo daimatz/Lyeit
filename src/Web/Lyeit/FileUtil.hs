@@ -14,10 +14,11 @@ import qualified Data.Text.Lazy.IO   as TLIO
 import           Data.Time           (UTCTime, formatTime, utcToLocalZonedTime)
 import           Prelude             hiding (FilePath)
 import           System.Directory    (doesDirectoryExist, getDirectoryContents)
-import           System.FilePath     ((</>))
+import           System.FilePath     ((</>), pathSeparator)
 import           System.Locale       (defaultTimeLocale)
 import qualified System.Posix        as Posix
 
+import           Web.Lyeit.Config
 import           Web.Lyeit.Const
 import           Web.Lyeit.Type
 
@@ -98,10 +99,21 @@ tryNTimes action (FullPath path) = inner retry_times
         `catch` (\(e :: IOError) ->
             if m == 0 then throwIO e else inner (m-1))
 
-getFileSize :: FullPath -> IO Posix.FileOffset
-getFileSize (FullPath full) = Posix.fileSize <$> Posix.getFileStatus full
+getFileSizeKB :: FullPath -> IO Double
+getFileSizeKB (FullPath full) = do
+    size <- Posix.getFileStatus full
+    let kb = fromIntegral (Posix.fileSize size) / (1024 :: Double)
+    return $ fromIntegral (truncate (10 * kb) :: Int) / (10 :: Double)
 
 timeFormat :: UTCTime -> IO String
 timeFormat utctime = do
     zonedtime <- utcToLocalZonedTime utctime
     return $ formatTime defaultTimeLocale "%F (%a) %T" zonedtime
+
+-- | fullpath
+--
+-- combine given path with document_root.
+fullpath :: RequestPath -> ConfigM FullPath
+fullpath (RequestPath request) = do
+    (FullPath dfull) <- config document_root_full
+    return $ FullPath $ dfull </> dropWhile (== pathSeparator) request
