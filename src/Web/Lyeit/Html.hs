@@ -72,10 +72,33 @@ dirHtml (RequestPath request) cts =
     concat $ concat $ flip map headers $ \h ->
         let c = cts ! h in
         ["<div id=\"dir", show h, "\"><h2>", show h, "</h2><ul>"]
-        ++ map (uncurry list) c
+        ++ map list c
         ++ ["</ul></div>"]
   where
-    list (RelativePath relative) title
-        = concat ["<li><a href=\"", requestPath relative, "\">", title, "</a></li>"]
-    requestPath path
-        = (if null request then "" else "/" <> request) <> "/" <> path
+    list (StatDir (RelativePath r) _)
+        = concat
+            ["<li><a href=\""
+            , requestPath r
+            , "\">"
+            , r
+            , "/</a>"
+            , " ["
+            , r
+            , ", dir]</li>"
+            ]
+    list stat
+        = let (RelativePath r) = statFileRelativePath stat in concat
+            [ "<li><a href=\"", requestPath r, "\">"
+            , statFileTitle stat
+            , "</a>"
+            , " ["
+            , r
+            , " ("
+            , show (statFileType stat)
+            , "), "
+            , show (statFileSizeKb stat)
+            , "KB"
+            , "]</li>"
+            ]
+    requestPath relative
+        = (if null request then "" else "/" <> request) <> "/" <> relative

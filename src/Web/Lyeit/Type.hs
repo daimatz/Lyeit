@@ -25,19 +25,36 @@ data FileType
 
 instance Read FileType where
     readsPrec _ s = case s of
+
         "txt"      -> [(Plain, "")]
+        "Plain"    -> [(Plain, "")]
+
         "json"     -> [(JSON, "")]
+        "JSON"     -> [(JSON, "")]
+
         "markdown" -> [(Markdown, "")]
         "md"       -> [(Markdown, "")]
         "mdown"    -> [(Markdown, "")]
+        "Markdown" -> [(Markdown, "")]
+
         "rst"      -> [(RST, "")]
+        "RST"      -> [(RST, "")]
+
         "sgm"      -> [(DocBook, "")]
         "sgml"     -> [(DocBook, "")]
         "xml"      -> [(DocBook, "")]
+        "DocBook"  -> [(DocBook, "")]
+
         "textile"  -> [(TexTile, "")]
+        "TexTile"  -> [(TexTile, "")]
+
         "htm"      -> [(Html, "")]
         "html"     -> [(Html, "")]
+        "Html"      -> [(Html, "")]
+
         "tex"      -> [(LaTeX, "")]
+        "LaTeX"    -> [(LaTeX, "")]
+
         _          -> [(OtherFile, "")]
 
 data Config = Config
@@ -69,7 +86,21 @@ data ListType = Directory | Document | Other
 
 type Title = String
 
-type ListFiles = Map ListType [(RelativePath, Title)]
+type ListFiles = Map ListType [FileStat]
+
+data FileStat
+    = StatDir
+        { statDirRelativePath :: RelativePath
+        , statDirFullPath     :: FullPath
+        }
+    | StatFile
+        { statFileType         :: FileType
+        , statFileRelativePath :: RelativePath
+        , statFileFullPath     :: FullPath
+        , statFileTitle        :: Title
+        , statFileSizeKb       :: Double
+        }
+  deriving (Show, Read, Eq, Ord)
 
 newtype FullPath = FullPath FilePath
   deriving (Show, Read, Eq, Ord)

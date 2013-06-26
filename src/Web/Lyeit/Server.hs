@@ -18,7 +18,6 @@ import           System.Directory     (doesDirectoryExist, doesFileExist,
 import           System.FilePath      (dropTrailingPathSeparator, normalise,
                                        (</>))
 import qualified Text.Pandoc          as P
-import           Text.Pandoc.Shared   (stringify)
 import qualified Web.Scotty           as S
 
 import           Web.Lyeit.Config
@@ -74,17 +73,12 @@ actionSearch (RequestPath request) query = do
 
 actionDir :: RequestPath -> ConfigM ()
 actionDir (RequestPath request) = do
-    (FullPath full) <- fullpath (RequestPath request)
-    fs <- liftIO $ dirFiles (FullPath full)
-    isDirs <- forM fs $ \(RelativePath f) -> do
-        isDir <- liftIO $ doesDirectoryExist $ full </> f
-        title <- case selectReader (getFileType f) of
-            Just reader -> do
-                contents <- liftIO $ tryNTimes readFile (FullPath $ full </> f)
-                return $ fromMaybe f $ getTitle $ reader P.def contents
-            Nothing -> return f
-        return (isDir, title)
-    let cts = foldl gather emptyDir ((uncurry zip3 . unzip) isDirs fs)
+    (FullPath fullDirPath) <- fullpath (RequestPath request)
+    fs <- liftIO $ dirFiles (FullPath fullDirPath)
+
+    stats <- liftIO $ forM fs $ \(RelativePath f) ->
+        getFileStat $ FullPath $ fullDirPath </> f
+    let cts = foldl gather emptyDir stats
         body = dirHtml (RequestPath request) cts
 
     pandoc <- setMeta (RequestPath request) $ P.readMarkdown P.def body
@@ -95,16 +89,13 @@ actionDir (RequestPath request) = do
         , (Document, [])
         , (Other, [])
         ]
-    add :: ListFiles -> ListType -> (RelativePath, Title) -> ListFiles
-    add lst genre p = Map.insertWith mappend genre [p] lst
-    gather :: ListFiles -> (Bool, Title, RelativePath) -> ListFiles
-    gather lst (d, t, RelativePath f) =
-        if d then
-            add lst Directory (RelativePath f, t)
-        else
-            case getFileType f of
-                OtherFile -> add lst Other (RelativePath f, t)
-                _         -> add lst Document (RelativePath f, t)
+    add :: ListFiles -> ListType -> FileStat -> ListFiles
+    add lst genre stat = Map.insertWith mappend genre [stat] lst
+    gather :: ListFiles -> FileStat -> ListFiles
+    gather lst stat@(StatDir _ _) = add lst Directory stat
+    gather lst stat = case statFileType stat of
+        OtherFile -> add lst Other stat
+        _         -> add lst Document stat
 
 actionFile :: RequestPath -> ConfigM ()
 actionFile (RequestPath request) = do
@@ -118,17 +109,6 @@ actionFile (RequestPath request) = do
     maybe (responseFile $ FullPath full) responseDocument $
         selectReader $ getFileType full
 
-selectReader :: FileType -> Maybe (P.ReaderOptions -> String -> P.Pandoc)
-selectReader tp = case tp of
-    Markdown  -> Just P.readMarkdown
-    RST       -> Just P.readRST
-    MediaWiki -> Just P.readMediaWiki
-    DocBook   -> Just P.readDocBook
-    TexTile   -> Just P.readTextile
-    LaTeX     -> Just P.readLaTeX
-    Html      -> Just P.readHtml
-    _         -> Nothing
-
 setMeta :: RequestPath -> P.Pandoc -> ConfigM P.Pandoc
 setMeta (RequestPath request) pandoc@(P.Pandoc meta body) = do
     (FullPath full) <- fullpath (RequestPath request)
@@ -140,15 +120,6 @@ setMeta (RequestPath request) pandoc@(P.Pandoc meta body) = do
         date  = [P.Str time]
 
     return $ P.Pandoc meta { P.docTitle = title, P.docDate = date } body
-
-getTitle :: P.Pandoc -> Maybe Title
-getTitle (P.Pandoc meta body) = case P.docTitle meta of
-    [] -> getTitleFromBody body
-    ils -> Just $ stringify ils
-  where
-    getTitleFromBody [] = Nothing
-    getTitleFromBody (P.Header _ _ ils : _) = Just $ stringify ils
-    getTitleFromBody (_ : next) = getTitleFromBody next
 
 response :: ConfigM () -> ConfigM ()
 response action = do

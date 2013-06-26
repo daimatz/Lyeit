@@ -7,6 +7,7 @@ import           Control.Applicative ((<$>), (<*>))
 import           Control.Exception   (catch, throwIO)
 import           Control.Monad       (forM, join)
 import           Data.List           (elemIndices)
+import           Data.Maybe          (fromMaybe)
 import           Data.String         (IsString)
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
@@ -14,9 +15,11 @@ import qualified Data.Text.Lazy.IO   as TLIO
 import           Data.Time           (UTCTime, formatTime, utcToLocalZonedTime)
 import           Prelude             hiding (FilePath)
 import           System.Directory    (doesDirectoryExist, getDirectoryContents)
-import           System.FilePath     ((</>), pathSeparator)
+import           System.FilePath     (pathSeparator, takeFileName, (</>))
 import           System.Locale       (defaultTimeLocale)
 import qualified System.Posix        as Posix
+import qualified Text.Pandoc         as P
+import           Text.Pandoc.Shared  (stringify)
 
 import           Web.Lyeit.Config
 import           Web.Lyeit.Const
@@ -99,16 +102,59 @@ tryNTimes action (FullPath path) = inner retry_times
         `catch` (\(e :: IOError) ->
             if m == 0 then throwIO e else inner (m-1))
 
-getFileSizeKB :: FullPath -> IO Double
-getFileSizeKB (FullPath full) = do
-    size <- Posix.getFileStatus full
-    let kb = fromIntegral (Posix.fileSize size) / (1024 :: Double)
-    return $ fromIntegral (truncate (10 * kb) :: Int) / (10 :: Double)
+getFileStat :: FullPath -> IO FileStat
+getFileStat (FullPath full) = do
+    isDir <- doesDirectoryExist full
+    if isDir then
+        return StatDir
+            { statDirRelativePath = RelativePath $ takeFileName full
+            , statDirFullPath     = FullPath full
+            }
+    else do
+        size <- getFileSizeKb
+        contents <- readFile full
+        let title = case selectReader (getFileType full) of
+                Nothing -> takeFileName full
+                Just reader -> fromMaybe (takeFileName full) $
+                    getTitle $ reader P.def contents
+        return StatFile
+            { statFileType         = getFileType full
+            , statFileRelativePath = RelativePath $ takeFileName full
+            , statFileFullPath     = FullPath full
+            , statFileTitle        = title
+            , statFileSizeKb       = size
+            }
+  where
+    getFileSizeKb :: IO Double
+    getFileSizeKb = do
+        size <- Posix.fileSize <$> Posix.getFileStatus full
+        let kb = fromIntegral size / (1024 :: Double)
+        return $ fromIntegral (truncate (10 * kb) :: Int) / (10 :: Double)
+
+getTitle :: P.Pandoc -> Maybe Title
+getTitle (P.Pandoc meta body) = case P.docTitle meta of
+    [] -> getTitleFromBody body
+    ils -> Just $ stringify ils
+  where
+    getTitleFromBody [] = Nothing
+    getTitleFromBody (P.Header _ _ ils : _) = Just $ stringify ils
+    getTitleFromBody (_ : next) = getTitleFromBody next
 
 timeFormat :: UTCTime -> IO String
 timeFormat utctime = do
     zonedtime <- utcToLocalZonedTime utctime
     return $ formatTime defaultTimeLocale "%F (%a) %T" zonedtime
+
+selectReader :: FileType -> Maybe (P.ReaderOptions -> String -> P.Pandoc)
+selectReader tp = case tp of
+    Markdown  -> Just P.readMarkdown
+    RST       -> Just P.readRST
+    MediaWiki -> Just P.readMediaWiki
+    DocBook   -> Just P.readDocBook
+    TexTile   -> Just P.readTextile
+    LaTeX     -> Just P.readLaTeX
+    Html      -> Just P.readHtml
+    _         -> Nothing
 
 -- | fullpath
 --
