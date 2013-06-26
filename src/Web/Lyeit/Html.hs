@@ -18,6 +18,7 @@ import qualified System.FilePath     as FP
 import qualified Text.Pandoc         as P
 
 import           Web.Lyeit.Config
+import           Web.Lyeit.FileUtil
 import           Web.Lyeit.Type
 
 toHtml :: RequestPath -> String -> P.Pandoc -> ConfigM Text
@@ -29,8 +30,12 @@ toHtml (RequestPath request) query pandoc = do
 
     template_content <- liftIO $ readFile template
 
-    root <- config document_root_show
+    root_show <- config document_root_show
     mathjax <- config mathjax_url
+
+    (FullPath root_full) <- config document_root_full
+    let full = root_full </> request
+    stat <- liftIO $ getFileStat (FullPath full)
 
     let def = P.def
             { P.writerStandalone = True
@@ -40,8 +45,12 @@ toHtml (RequestPath request) query pandoc = do
             , P.writerSectionDivs = True
             , P.writerVariables =
                 [ ("mathjax_url", mathjax)
-                , ("path_links", path_links root request)
+                , ("path_links", path_links root_show request)
                 , ("search_form", search_form request query)
+                , ("filename", FP.takeFileName request)
+                , ("size", case stat of
+                    StatFile {} -> show (statFileSizeKb stat)
+                    _ -> "")
                 ]
             }
     return $ TL.pack $ P.writeHtmlString def pandoc
