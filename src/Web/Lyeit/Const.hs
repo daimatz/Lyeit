@@ -9,4 +9,4 @@ template_path_default :: String
 template_path_default = "~/.Lyeit.html"
 
 retry_times :: Int
-retry_times = 3
+retry_times = 10

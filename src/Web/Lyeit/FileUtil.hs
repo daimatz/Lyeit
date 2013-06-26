@@ -8,7 +8,6 @@ import           Control.Exception   (catch, throwIO)
 import           Control.Monad       (forM, join)
 import           Data.List           (elemIndices)
 import           Data.Maybe          (fromMaybe)
-import           Data.String         (IsString)
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Text.Lazy.IO   as TLIO
@@ -28,14 +27,15 @@ import           Web.Lyeit.Type
 -- | emurates `ls -a' command with not containing "." and "..".
 dirFiles :: FullPath -> IO [RelativePath]
 dirFiles (FullPath full) = do
-     ls <- filter (`notElem` [".", ".."]) <$> getDirectoryContents full
+     ls <- filter (`notElem` [".", ".."])
+        <$> tryNTimes getDirectoryContents (FullPath full)
      return $ map RelativePath ls
 
 -- | emurates `find - grep' command.
 -- find path -exec grep queries
 findGrep :: FullPath -> [Text] -> IO [FullPath]
 findGrep (FullPath path) queries = do
-    isDir <- doesDirectoryExist path
+    isDir <- tryNTimes doesDirectoryExist (FullPath path)
     if isDir then
         matchDir $ FullPath path
     else
@@ -44,7 +44,8 @@ findGrep (FullPath path) queries = do
     inner :: FullPath -> IO [FullPath]
     inner (FullPath full) = do
         fs <- dirFiles (FullPath full)
-        isDirs <- forM fs $ \(RelativePath f) -> doesDirectoryExist $ full </> f
+        isDirs <- forM fs $ \(RelativePath f)
+            -> tryNTimes doesDirectoryExist (FullPath $ full </> f)
         res <- forM (zip fs isDirs) $ \(RelativePath f, d) ->
             let newPath = FullPath $ full </> f in
             if d then
@@ -95,7 +96,7 @@ getFileType path =
         []      -> OtherFile
         indices -> read $ drop (1 + last indices) path
 
-tryNTimes :: forall s . (IsString s) => (String -> IO s) -> FullPath -> IO s
+tryNTimes :: (String -> IO s) -> FullPath -> IO s
 tryNTimes action (FullPath path) = inner retry_times
   where
     inner m = action path
@@ -104,7 +105,7 @@ tryNTimes action (FullPath path) = inner retry_times
 
 getFileStat :: FullPath -> IO FileStat
 getFileStat (FullPath full) = do
-    isDir <- doesDirectoryExist full
+    isDir <- tryNTimes doesDirectoryExist (FullPath full)
     if isDir then
         return StatDir
             { statDirRelativePath = RelativePath $ takeFileName full
@@ -112,7 +113,7 @@ getFileStat (FullPath full) = do
             }
     else do
         size <- getFileSizeKb
-        contents <- readFile full
+        contents <- tryNTimes readFile (FullPath full)
         let title = case selectReader (getFileType full) of
                 Nothing -> takeFileName full
                 Just reader -> fromMaybe (takeFileName full) $
@@ -127,7 +128,7 @@ getFileStat (FullPath full) = do
   where
     getFileSizeKb :: IO Double
     getFileSizeKb = do
-        size <- Posix.fileSize <$> Posix.getFileStatus full
+        size <- Posix.fileSize <$> tryNTimes Posix.getFileStatus (FullPath full)
         let kb = fromIntegral size / (1024 :: Double)
         return $ fromIntegral (truncate (10 * kb) :: Int) / (10 :: Double)
 
