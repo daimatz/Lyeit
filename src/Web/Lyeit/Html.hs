@@ -47,7 +47,7 @@ toHtml (RequestPath request) query pandoc = do
                 [ ("mathjax_url", mathjax)
                 , ("path_links", path_links root_show request)
                 , ("search_form", search_form request query)
-                , ("filename", FP.takeFileName request)
+                , ("path", root_show </> request)
                 , ("size", case stat of
                     StatFile {} -> show (statFileSizeKb stat)
                     _ -> "")
@@ -57,31 +57,43 @@ toHtml (RequestPath request) query pandoc = do
 
 dirMarkdown :: RequestPath -> ListFiles -> ConfigM String
 dirMarkdown (RequestPath request) cts = do
+    root_show <- config document_root_show
     let headers = [Directory, Document, Other]
         body = concat $ concat $ flip map headers $ \h ->
             let c = cts ! h in
             ["## ", show h, "\n\n"]
-            ++ map list c
+            ++ map (list root_show) c
             ++ ["\n"]
-    root_show <- config document_root_show
     return $ "# Index of " ++ (root_show </> request) ++ "\n\n" ++ body
   where
-    list (StatDir (RelativePath r) _)
-        = concat ["- [", r, "/](", requestPath r, ") [", r, ", dir]\n"]
-    list stat
+    list root_show (StatDir (RelativePath r) _)
+        = concat
+            [ "- ["
+            , r
+            , "/]("
+            , requestPath r
+            , ") <a class=\"filename\" href=\"javascript:copy('"
+            , root_show <> requestPath r
+            , "')\">["
+            , r
+            , ", dir]\n"
+            ]
+    list root_show stat
         = let (RelativePath r) = statFileRelativePath stat in concat
             [ "- ["
             , statFileTitle stat
             , "]("
             , requestPath r
-            , ") ["
+            , ") <a class=\"filename\" href=\"javascript:copy('"
+            , root_show <> requestPath r
+            , "')\">["
             , r
             , " ("
             , show (statFileType stat)
             , "), "
             , show (statFileSizeKb stat)
             , "KB"
-            , "]\n"
+            , "]</a>\n"
             ]
     requestPath relative
         = (if null request then "" else "/" <> request) <> "/" <> relative

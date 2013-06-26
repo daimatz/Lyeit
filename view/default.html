@@ -42,9 +42,17 @@ a:link, a:visited, a:hover {
 a:hover {
     text-decoration: underline;
 }
-h1, h2, h3 {
+h1, h2, h3,
+h1 a:link, h2 a:link, h3 a:link,
+h1 a:visited, h2 a:visited, h3 a:visited,
+h1 a:hover, h2 a:hover, h3 a:hover {
     font-weight: bold;
     color: #2f4f4f;
+}
+h4 a:link, h5 a:link, h6 a:link,
+h4 a:visited, h5 a:visited, h6 a:visited,
+h4 a:hover, h5 a:hover, h6 a:hover {
+    color: #000000;
 }
 h1 {
     font-size: 200%;
@@ -88,6 +96,9 @@ div#head > form {
     display: float;
     float: right;
     text-align: right;
+}
+div#toc {
+    display: none;
 }
 a.filename {
     color: #666666;
@@ -171,21 +182,33 @@ code > span.fu { color: #06287e; }
 code > span.er { color: #ff0000; font-weight: bold; }
 </style>
 <script src="$mathjax_url$" type="text/javascript"></script>
+<script type="text/javascript">
+function copy(text) {
+    prompt("Copy filepath below:", text);
+}
+function showHideToc() {
+  if (document.getElementById("toc").style.display != "block") {
+    document.getElementById("toc").style.display = "block";
+  } else {
+    document.getElementById("toc").style.display = "none";
+  }
+}
+</script>
 </head>
 <body>
-<div id="header">
+<div id="head">
 $path_links$
+[<a class="filename" href="javascript:copy('$path$')">copy</a>
+/
+<a class="filename" href="javascript:showHideToc();">TOC</a>]
 $search_form$
 </div>
 <div id="toc">
 $toc$
 </div>
 $body$
-<footer>
-$filename$ / last updated: $date$
-$if(size)$
-/ $size$KB
-$endif$
+<footer id="foot">
+$path$ [$if(size)$$size$KB / $endif$last updated: $date$]
 </footer>
 </body>
 </html>
