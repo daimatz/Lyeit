@@ -79,7 +79,8 @@ actionDir (RequestPath request) = do
     stats <- liftIO $ forM fs $ \(RelativePath f) ->
         getFileStat $ FullPath $ fullDirPath </> f
     let cts = foldl gather emptyDir stats
-        body = dirHtml (RequestPath request) cts
+
+    body <- dirMarkdown (RequestPath request) cts
 
     pandoc <- setMeta (RequestPath request) $ P.readMarkdown P.def body
     responseHtml =<< toHtml (RequestPath request) "" pandoc

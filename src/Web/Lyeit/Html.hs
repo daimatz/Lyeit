@@ -1,5 +1,5 @@
 module Web.Lyeit.Html
-    ( dirHtml
+    ( dirMarkdown
     , toHtml
     )
     where
@@ -55,34 +55,16 @@ toHtml (RequestPath request) query pandoc = do
             }
     return $ TL.pack $ P.writeHtmlString def pandoc
 
-path_links :: String -> String -> String
-path_links root path = concatMap format paths
-  where
-    splitter x y = ([FP.pathSeparator] <> y, snd x </> y)
-    paths = let splited = scanl splitter ("", [FP.pathSeparator]) $
-                    FP.splitDirectories path
-            in  first (root </>) (head splited) : tail splited
-    format (partial, request) = concat
-        [ "<a href=\"", request, "\">", partial, "</a>"
-        ]
-
-search_form :: String -> String -> String
-search_form p q = concat
-    [ "<form action=\"/search\" method=\"get\">"
-    , "<input type=\"hidden\" name=\"p\" value=\"", p, "\" />"
-    , "<input type=\"text\" name=\"q\" value=\"", q, "\" size=\"24\" />"
-    , "<input type=\"submit\" value=\"search\" />"
-    , "</form>"
-    ]
-
-dirHtml :: RequestPath -> ListFiles -> String
-dirHtml (RequestPath request) cts =
-    let headers = [Directory, Document, Other] in
-    concat $ concat $ flip map headers $ \h ->
-        let c = cts ! h in
-        ["## ", show h, "\n\n"]
-        ++ map list c
-        ++ ["\n"]
+dirMarkdown :: RequestPath -> ListFiles -> ConfigM String
+dirMarkdown (RequestPath request) cts = do
+    let headers = [Directory, Document, Other]
+        body = concat $ concat $ flip map headers $ \h ->
+            let c = cts ! h in
+            ["## ", show h, "\n\n"]
+            ++ map list c
+            ++ ["\n"]
+    root_show <- config document_root_show
+    return $ "# Index of " ++ (root_show </> request) ++ "\n\n" ++ body
   where
     list (StatDir (RelativePath r) _)
         = concat ["- [", r, "/](", requestPath r, ") [", r, ", dir]\n"]
@@ -103,3 +85,23 @@ dirHtml (RequestPath request) cts =
             ]
     requestPath relative
         = (if null request then "" else "/" <> request) <> "/" <> relative
+
+path_links :: String -> String -> String
+path_links root path = concatMap format paths
+  where
+    splitter x y = ([FP.pathSeparator] <> y, snd x </> y)
+    paths = let splited = scanl splitter ("", [FP.pathSeparator]) $
+                    FP.splitDirectories path
+            in  first (root </>) (head splited) : tail splited
+    format (partial, request) = concat
+        [ "<a href=\"", request, "\">", partial, "</a>"
+        ]
+
+search_form :: String -> String -> String
+search_form p q = concat
+    [ "<form action=\"/search\" method=\"get\">"
+    , "<input type=\"hidden\" name=\"p\" value=\"", p, "\" />"
+    , "<input type=\"text\" name=\"q\" value=\"", q, "\" size=\"24\" />"
+    , "<input type=\"submit\" value=\"search\" />"
+    , "</form>"
+    ]
