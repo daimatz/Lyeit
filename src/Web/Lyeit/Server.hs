@@ -91,7 +91,7 @@ actionDir (RequestPath request) = do
         , (Other, [])
         ]
     add :: ListFiles -> ListType -> FileStat -> ListFiles
-    add lst genre stat = Map.insertWith mappend genre [stat] lst
+    add lst genre stat = Map.insertWith (flip mappend) genre [stat] lst
     gather :: ListFiles -> FileStat -> ListFiles
     gather lst stat@(StatDir _ _) = add lst Directory stat
     gather lst stat = case statFileType stat of

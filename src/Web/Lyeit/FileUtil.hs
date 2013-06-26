@@ -6,7 +6,9 @@ module Web.Lyeit.FileUtil where
 import           Control.Applicative ((<$>), (<*>))
 import           Control.Exception   (catch, throwIO)
 import           Control.Monad       (forM, join)
-import           Data.List           (elemIndices)
+import           Data.Char           (toLower)
+import           Data.Function       (on)
+import           Data.List           (elemIndices, sortBy)
 import           Data.Maybe          (fromMaybe)
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
@@ -29,7 +31,7 @@ dirFiles :: FullPath -> IO [RelativePath]
 dirFiles (FullPath full) = do
      ls <- filter (`notElem` [".", ".."])
         <$> tryNTimes getDirectoryContents (FullPath full)
-     return $ map RelativePath ls
+     return $ map RelativePath $ sortBy (compare `on` map toLower) ls
 
 -- | emurates `find - grep' command.
 -- find path -exec grep queries
