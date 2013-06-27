@@ -119,7 +119,7 @@ getFileStat (FullPath full) = do
         let title = case selectReader (getFileType full) of
                 Nothing -> takeFileName full
                 Just reader -> fromMaybe (takeFileName full) $
-                    getTitle $ reader P.def contents
+                    getTitle $ reader contents
         return StatFile
             { statFileType         = getFileType full
             , statFileRelativePath = RelativePath $ takeFileName full
@@ -148,16 +148,22 @@ timeFormat utctime = do
     zonedtime <- utcToLocalZonedTime utctime
     return $ formatTime defaultTimeLocale "%F (%a) %T" zonedtime
 
-selectReader :: FileType -> Maybe (P.ReaderOptions -> String -> P.Pandoc)
-selectReader tp = case tp of
-    Markdown  -> Just P.readMarkdown
-    RST       -> Just P.readRST
-    MediaWiki -> Just P.readMediaWiki
-    DocBook   -> Just P.readDocBook
-    TexTile   -> Just P.readTextile
-    LaTeX     -> Just P.readLaTeX
-    Html      -> Just P.readHtml
-    _         -> Nothing
+selectReader :: FileType -> Maybe (String -> P.Pandoc)
+selectReader tp =
+    let viaMarkdown = P.readMarkdown P.def . P.writeMarkdown P.def
+        reader      = case tp of
+            Markdown  -> Just P.readMarkdown
+            RST       -> Just P.readRST
+            MediaWiki -> Just P.readMediaWiki
+            DocBook   -> Just P.readDocBook
+            TexTile   -> Just P.readTextile
+            LaTeX     -> Just P.readLaTeX
+            Html      -> Just P.readHtml
+            _         -> Nothing
+    in
+        -- to avoid `RST to Html' doesn't produce TOC links correctly.
+        -- other conversion may cause same issue. why?
+        (viaMarkdown .) <$> ($ P.def) <$> reader
 
 -- | fullpath
 --

@@ -104,7 +104,7 @@ actionFile (RequestPath request) = do
     body <- liftIO $ tryNTimes readFile (FullPath full)
 
     let responseDocument reader = do
-            pandoc <- setMeta (RequestPath request) $ reader P.def body
+            pandoc <- setMeta (RequestPath request) $ reader body
             responseHtml =<< toHtml (RequestPath request) "" pandoc
 
     maybe (responseFile $ FullPath full) responseDocument $
