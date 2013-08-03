@@ -5,8 +5,6 @@ module Web.Lyeit.Server
 import           Control.Applicative  ((<$>))
 import           Control.Monad        (forM)
 import           Control.Monad.Trans  (lift, liftIO)
-import           Data.CaseInsensitive (mk)
-import           Data.List            (sort)
 import qualified Data.Map             as Map
 import           Data.Maybe           (fromMaybe)
 import           Data.Monoid          (mappend)
@@ -69,7 +67,13 @@ actionSearch :: RequestPath -> Text -> ConfigM ()
 actionSearch (RequestPath request) query = do
     (FullPath full) <- fullpath (RequestPath request)
     fs <- liftIO $ findGrep (FullPath full) (TL.words query)
-    responseHtml $ TL.pack $ show $ sort $ map (\(FullPath f) -> mk f) fs
+
+    stats <- liftIO $ mapM getFileStat fs
+
+    body <- searchMarkdown (RequestPath request) query stats
+
+    pandoc <- setMeta (RequestPath request) $ P.readMarkdown P.def body
+    responseHtml =<< toHtml (RequestPath request) (TL.unpack query) pandoc
 
 actionDir :: RequestPath -> ConfigM ()
 actionDir (RequestPath request) = do
@@ -93,7 +97,7 @@ actionDir (RequestPath request) = do
     add :: ListFiles -> ListType -> FileStat -> ListFiles
     add lst genre stat = Map.insertWith (flip mappend) genre [stat] lst
     gather :: ListFiles -> FileStat -> ListFiles
-    gather lst stat@(StatDir _ _) = add lst Directory stat
+    gather lst stat@(StatDir {}) = add lst Directory stat
     gather lst stat = case statFileType stat of
         OtherFile -> add lst Other stat
         _         -> add lst Document stat

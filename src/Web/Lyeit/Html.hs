@@ -1,5 +1,6 @@
 module Web.Lyeit.Html
     ( dirMarkdown
+    , searchMarkdown
     , toHtml
     )
     where
@@ -55,6 +56,28 @@ toHtml (RequestPath request) query pandoc = do
             }
     return $ TL.pack $ P.writeHtmlString def pandoc
 
+searchMarkdown :: RequestPath -> Text -> [FileStat] -> ConfigM String
+searchMarkdown (RequestPath request) query stats = do
+    root_show <- config document_root_show
+    bodies <- mapM list stats
+    return $ "# Search "
+        ++ TL.unpack query
+        ++ " in "
+        ++ root_show
+        ++ request
+        ++ "\n"
+        ++ concat bodies
+  where
+    list stat = do
+        (title, RequestPath req) <- case stat of
+                StatDir {} -> do
+                    rpath <- requestpath $ statDirFullPath stat
+                    return ( statDirTitle stat, rpath)
+                StatFile {} -> do
+                    rpath <- requestpath $ statFileFullPath stat
+                    return ( statFileTitle stat, rpath)
+        return $ concat ["- [", title, "](", req, ")\n"]
+
 dirMarkdown :: RequestPath -> ListFiles -> ConfigM String
 dirMarkdown (RequestPath request) cts = do
     root_show <- config document_root_show
@@ -66,7 +89,7 @@ dirMarkdown (RequestPath request) cts = do
             ++ ["\n"]
     return $ "# Index of " ++ (root_show </> request) ++ "\n\n" ++ body
   where
-    list root_show (StatDir (RelativePath r) _)
+    list root_show (StatDir (RelativePath r) _ _)
         = concat
             [ "- ["
             , r

@@ -8,8 +8,9 @@ import           Control.Exception   (catch, throwIO)
 import           Control.Monad       (forM, join)
 import           Data.Char           (toLower)
 import           Data.Function       (on)
-import           Data.List           (elemIndices, sortBy)
-import           Data.Maybe          (fromMaybe)
+import           Data.List           (elemIndices, sortBy, stripPrefix)
+import           Data.Maybe          (fromJust, fromMaybe)
+import qualified Data.Set            as Set
 import           Data.Text.Lazy      (Text)
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Text.Lazy.IO   as TLIO
@@ -21,7 +22,6 @@ import           System.Locale       (defaultTimeLocale)
 import qualified System.Posix        as Posix
 import qualified Text.Pandoc         as P
 import           Text.Pandoc.Shared  (stringify)
-import qualified  Data.Set as Set
 
 import           Web.Lyeit.Config
 import           Web.Lyeit.Const
@@ -113,6 +113,7 @@ getFileStat (FullPath full) = do
         return StatDir
             { statDirRelativePath = RelativePath $ takeFileName full
             , statDirFullPath     = FullPath full
+            , statDirTitle        = takeFileName full </> ""
             }
     else do
         size <- getFileSizeKb
@@ -186,3 +187,11 @@ fullpath :: RequestPath -> ConfigM FullPath
 fullpath (RequestPath request) = do
     (FullPath dfull) <- config document_root_full
     return $ FullPath $ dfull </> dropWhile (== pathSeparator) request
+
+-- | requestpath
+--
+-- strip document_root_full from given fullpath.
+requestpath :: FullPath -> ConfigM RequestPath
+requestpath (FullPath full) = do
+    (FullPath dfull) <- config document_root_full
+    return $ RequestPath $ fromJust $ stripPrefix dfull full

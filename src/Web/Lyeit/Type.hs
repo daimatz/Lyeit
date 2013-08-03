@@ -92,6 +92,7 @@ data FileStat
     = StatDir
         { statDirRelativePath :: RelativePath
         , statDirFullPath     :: FullPath
+        , statDirTitle        :: Title
         }
     | StatFile
         { statFileType         :: FileType
