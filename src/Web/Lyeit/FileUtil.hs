@@ -21,6 +21,7 @@ import           System.Locale       (defaultTimeLocale)
 import qualified System.Posix        as Posix
 import qualified Text.Pandoc         as P
 import           Text.Pandoc.Shared  (stringify)
+import qualified  Data.Set as Set
 
 import           Web.Lyeit.Config
 import           Web.Lyeit.Const
@@ -163,7 +164,20 @@ selectReader tp =
     in
         -- to avoid `RST to Html' doesn't produce TOC links correctly.
         -- other conversion may cause same issue. why?
-        (viaMarkdown .) <$> ($ P.def) <$> reader
+        (viaMarkdown .) <$> ($ option) <$> reader
+  where
+    option = P.def
+        { P.readerExtensions = extensions
+        }
+    -- Pandoc extensions.
+    -- http://hackage.haskell.org/packages/archive/pandoc/latest/doc/html/Text-Pandoc-Options.html#t:Extension
+    extensions = Set.fromList
+        [ P.Ext_table_captions
+        , P.Ext_simple_tables
+        , P.Ext_multiline_tables
+        , P.Ext_grid_tables
+        , P.Ext_tex_math_dollars
+        ]
 
 -- | fullpath
 --
